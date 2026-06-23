@@ -8,7 +8,7 @@ import { randomBytes } from "crypto";
 import Database from "better-sqlite3";
 
 type SignalMessage = {
-    type: "register" | "offer" | "answer" | "ice-candidate";
+    type: "register" | "connect-request" | "offer" | "answer" | "ice-candidate";
     id?: string;
     target?: string;
     payload?: unknown;
@@ -30,6 +30,7 @@ const findById = db.prepare("SELECT id FROM hosts WHERE id = ?");
 const app = new Hono();
 const peers = new Map<string, WSContext>();
 const onlineHosts = new Map<string, WSContext>();
+const activeSessions = new Set<string>();
 
 app.post("/hosts/register", (c) => {
     const hostId = randomBytes(4).toString("hex");
@@ -51,10 +52,12 @@ app.post("/codes/validate", async (c) => {
 
 app.get("/ws", upgradeWebSocket(() => {
     let myId: string | null = null;
+    let myWs: WSContext | null = null;
 
     return {
         onMessage(event, ws) {
             const msg: SignalMessage = JSON.parse(event.data as string);
+            myWs = ws;
 
             if (msg.type === "register") {
                 myId = msg.id!;
@@ -62,6 +65,14 @@ app.get("/ws", upgradeWebSocket(() => {
                 if (findById.get(myId)) onlineHosts.set(myId, ws);
                 console.log(`[+] ${myId} connected`);
                 return;
+            }
+
+            if (msg.type === "connect-request") {
+                if (activeSessions.has(msg.target!)) {
+                    ws.send(JSON.stringify({ type: "session-busy" }));
+                    return;
+                }
+                activeSessions.add(msg.target!);
             }
 
             const target = peers.get(msg.target!);
@@ -76,6 +87,10 @@ app.get("/ws", upgradeWebSocket(() => {
             if (myId) {
                 peers.delete(myId);
                 onlineHosts.delete(myId);
+                activeSessions.delete(myId);
+                for (const [hostId] of onlineHosts) {
+                    if (myWs && peers.get(hostId) === myWs) activeSessions.delete(hostId);
+                }
                 console.log(`[-] ${myId} disconnected`);
             }
         },
