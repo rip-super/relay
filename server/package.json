@@ -12,10 +12,12 @@
     "type": "commonjs",
     "dependencies": {
         "@hono/node-server": "^2.0.6",
+        "better-sqlite3": "^12.11.1",
         "hono": "^4.12.27",
         "ws": "^8.21.0"
     },
     "devDependencies": {
+        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^26.0.0",
         "@types/ws": "^8.18.1",
         "tsx": "^4.22.4",
