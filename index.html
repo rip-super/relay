@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>test</title>
+</head>
+
+<body>
+    <div>
+        <button onclick="connect('host')">Connect as Host</button>
+        <button onclick="connect('client')">Connect as Client</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    <br>
+    <div>
+        <input id="msg" placeholder="message" />
+        <button onclick="send()">Send</button>
+    </div>
+    <br>
+    <pre id="log"></pre>
+
+    <script>
+        let ws = null;
+        let role = null;
+
+        function log(msg) {
+            document.getElementById("log").textContent += msg + "\n";
+        }
+
+        function connect(as) {
+            role = as;
+            ws = new WebSocket("ws://localhost:6004/ws");
+
+            ws.onopen = () => {
+                log(`[connected as ${role}]`);
+                ws.send(JSON.stringify({ type: "register", id: role }));
+            };
+
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                log(`[in] ${JSON.stringify(msg)}`);
+            };
+
+            ws.onclose = () => log("[disconnected]");
+            ws.onerror = (e) => log("[error] " + e.message);
+        }
+
+        function send() {
+            const text = document.getElementById("msg").value;
+            const target = role === "host" ? "client" : "host";
+            const msg = { type: "message", target, payload: text };
+            ws.send(JSON.stringify(msg));
+            log(`[out] ${JSON.stringify(msg)}`);
+        }
+
+        function disconnect() {
+            ws?.close();
+        }
+    </script>
+</body>
+
+</html>
