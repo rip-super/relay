@@ -19,15 +19,17 @@ const db = new Database("relay.db");
 db.exec(`
     CREATE TABLE IF NOT EXISTS hosts (
         id TEXT PRIMARY KEY,
-        code TEST UNIQUE NOT NULL
+        code TEXT UNIQUE NOT NULL
     )
 `);
 
 const insertHost = db.prepare("INSERT INTO hosts (id, code) VALUES (?, ?)");
 const findByCode = db.prepare("SELECT id FROM hosts WHERE code = ?");
+const findById = db.prepare("SELECT id FROM hosts WHERE id = ?");
 
 const app = new Hono();
 const peers = new Map<string, WSContext>();
+const onlineHosts = new Map<string, WSContext>();
 
 app.post("/hosts/register", (c) => {
     const hostId = randomBytes(4).toString("hex");
@@ -40,7 +42,10 @@ app.post("/hosts/register", (c) => {
 app.post("/codes/validate", async (c) => {
     const { code } = await c.req.json<{ code: string }>();
     const host = findByCode.get(code?.toUpperCase()) as { id: string } | undefined;
+
     if (!host) return c.json({ valid: false }, 404);
+    if (!onlineHosts.has(host.id)) return c.json({ valid: false, reason: "host offline" }, 503);
+
     return c.json({ valid: true, hostId: host.id });
 });
 
@@ -51,9 +56,10 @@ app.get("/ws", upgradeWebSocket(() => {
         onMessage(event, ws) {
             const msg: SignalMessage = JSON.parse(event.data as string);
 
-            if (msg.type == "register") {
+            if (msg.type === "register") {
                 myId = msg.id!;
                 peers.set(myId, ws);
+                if (findById.get(myId)) onlineHosts.set(myId, ws);
                 console.log(`[+] ${myId} connected`);
                 return;
             }
@@ -69,10 +75,11 @@ app.get("/ws", upgradeWebSocket(() => {
         onClose() {
             if (myId) {
                 peers.delete(myId);
+                onlineHosts.delete(myId);
                 console.log(`[-] ${myId} disconnected`);
             }
-        }
-    }
+        },
+    };
 }));
 
 const wss = new WebSocketServer({ noServer: true });

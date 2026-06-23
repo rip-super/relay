@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
     <meta charset="UTF-8">
@@ -13,16 +13,20 @@
         <button onclick="disconnect()">Disconnect</button>
     </div>
     <br>
-    <div>
-        <input id="msg" placeholder="message" />
-        <button onclick="send()">Send</button>
+    <div id="connectBtnWrapper" style="display:none;">
+        <button onclick="startConnect()" id="connectBtn" disabled>Connect (start WebRTC)</button>
     </div>
     <br>
+    <video id="video" autoplay playsinline style="display:none;width:480px;"></video>
+    <br><br>
     <pre id="log"></pre>
 
     <script>
         let ws = null;
         let role = null;
+        let pc = null;
+
+        const video = document.getElementById("video");
 
         function log(msg) {
             document.getElementById("log").textContent += msg + "\n";
@@ -35,27 +39,72 @@
             ws.onopen = () => {
                 log(`[connected as ${role}]`);
                 ws.send(JSON.stringify({ type: "register", id: role }));
+                if (role === "client") {
+                    document.getElementById("connectBtnWrapper").style.display = "block";
+                    document.getElementById("connectBtn").disabled = false;
+                }
             };
 
-            ws.onmessage = (e) => {
+            ws.onmessage = async (e) => {
                 const msg = JSON.parse(e.data);
-                log(`[in] ${JSON.stringify(msg)}`);
+                log(`[in] ${msg.type}`);
+
+                if (msg.type === "connect-request" && role === "host") {
+                    await startWebRTC();
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    ws.send(JSON.stringify({ type: "offer", target: "client", payload: offer }));
+                } else if (msg.type === "offer" && role === "client") {
+                    await startWebRTC();
+                    await pc.setRemoteDescription(msg.payload);
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    ws.send(JSON.stringify({ type: "answer", target: "host", payload: answer }));
+                } else if (msg.type === "answer" && role === "host") {
+                    await pc.setRemoteDescription(msg.payload);
+                } else if (msg.type === "ice-candidate") {
+                    await pc.addIceCandidate(msg.payload);
+                }
             };
 
             ws.onclose = () => log("[disconnected]");
-            ws.onerror = (e) => log("[error] " + e.message);
+            ws.onerror = () => log("[error]");
         }
 
-        function send() {
-            const text = document.getElementById("msg").value;
-            const target = role === "host" ? "client" : "host";
-            const msg = { type: "message", target, payload: text };
-            ws.send(JSON.stringify(msg));
-            log(`[out] ${JSON.stringify(msg)}`);
+        function startConnect() {
+            if (role === "client") {
+                ws.send(JSON.stringify({ type: "connect-request", target: "host" }));
+                log("[sent connect-request]");
+            }
+        }
+
+        async function startWebRTC() {
+            pc = new RTCPeerConnection();
+
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    const target = role === "host" ? "client" : "host";
+                    ws.send(JSON.stringify({ type: "ice-candidate", target, payload: e.candidate }));
+                }
+            };
+
+            if (role === "host") {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            } else {
+                pc.ontrack = (e) => {
+                    video.srcObject = e.streams[0];
+                    video.style.display = "block";
+                    log("[stream received]");
+                };
+            }
         }
 
         function disconnect() {
+            pc?.close();
             ws?.close();
+            video.srcObject = null;
+            document.getElementById("connectBtn").disabled = true;
         }
     </script>
 </body>
