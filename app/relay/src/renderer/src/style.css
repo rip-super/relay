@@ -1,0 +1,287 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #07101f;
+    --surface: #0d1b2e;
+    --card: #0f1e33;
+    --accent: #4f8ef7;
+    --text: #dde6f0;
+    --muted: #4a6a88;
+    --border: rgba(255, 255, 255, 0.07);
+}
+
+body {
+    font-family: "Outfit", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    animation: fade-in 0.8s ease 0.5s both;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.picker-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.bg-layer {
+    position: absolute;
+    inset: -20px;
+    opacity: 0;
+    transition: opacity 2.5s ease;
+    background-size: cover;
+    background-position: center;
+    filter: blur(10px) brightness(0.45) saturate(1.1);
+}
+
+.bg-layer.active {
+    opacity: 1;
+}
+
+.game-label {
+    position: absolute;
+    bottom: 24px;
+    right: 28px;
+    z-index: 10;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.06em;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+}
+
+.game-label.active {
+    opacity: 1;
+}
+
+.glass-card {
+    position: relative;
+    z-index: 10;
+    background: rgba(7, 16, 31, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 48px 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+}
+
+.wordmark {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+
+.tagline {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: -20px;
+    letter-spacing: 0.02em;
+}
+
+.pick-cards {
+    display: flex;
+    gap: 14px;
+}
+
+.pick-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 40px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    color: var(--text);
+    min-width: 160px;
+    text-align: center;
+}
+
+.pick-card:hover {
+    background: rgba(79, 142, 247, 0.12);
+    border-color: rgba(79, 142, 247, 0.4);
+    transform: translateY(-2px);
+}
+
+.pick-icon {
+    font-size: 28px;
+}
+
+.pick-card strong {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.pick-card span {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.pick-hint {
+    font-size: 11px;
+    color: #2a4a66;
+    letter-spacing: 0.03em;
+}
+
+.screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.screen h1 {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.screen p {
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.picker-wrap {
+    opacity: 0;
+    transition: opacity 1.2s ease;
+}
+
+.picker-wrap.visible {
+    opacity: 1;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.brand-rule {
+    flex: 1;
+    height: 0.5px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.wordmark {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--text);
+    padding-right: -0.5em;
+}
+
+.tagline {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: -16px;
+}
+
+.pick-cards {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+}
+
+.pick-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 32px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 0.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    color: var(--text);
+    text-align: center;
+}
+
+.pick-card:hover {
+    background: rgba(79, 142, 247, 0.1);
+    border-color: rgba(79, 142, 247, 0.35);
+    transform: translateY(-2px);
+}
+
+.pick-icon {
+    font-size: 22px;
+    opacity: 0.5;
+    font-weight: 100;
+    line-height: 1;
+}
+
+.pick-card strong {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.pick-card span {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.pick-hint {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.15);
+    letter-spacing: 0.05em;
+}
+
+.game-label {
+    position: absolute;
+    bottom: 24px;
+    right: 28px;
+    z-index: 10;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 1s ease;
+}
+
+.game-label.active {
+    opacity: 1;
+}
