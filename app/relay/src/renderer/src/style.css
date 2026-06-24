@@ -546,3 +546,59 @@ body {
 .modal-overlay.modal-exit .modal {
     animation: modal-card-exit 0.22s ease both;
 }
+
+@keyframes kb-1 {
+    from {
+        transform: scale(1.08) translate(0, 0);
+    }
+
+    to {
+        transform: scale(1.22) translate(-3%, -2%);
+    }
+}
+
+@keyframes kb-2 {
+    from {
+        transform: scale(1.18) translate(-2%, 1%);
+    }
+
+    to {
+        transform: scale(1.06) translate(2.5%, -1.5%);
+    }
+}
+
+@keyframes kb-3 {
+    from {
+        transform: scale(1.1) translate(2%, 1%);
+    }
+
+    to {
+        transform: scale(1.22) translate(-1.5%, -3%);
+    }
+}
+
+@keyframes kb-4 {
+    from {
+        transform: scale(1.16) translate(1%, -1%);
+    }
+
+    to {
+        transform: scale(1.07) translate(-2.5%, 2%);
+    }
+}
+
+.bg-layer.kb-1 {
+    animation: kb-1 20s ease-in-out infinite alternate;
+}
+
+.bg-layer.kb-2 {
+    animation: kb-2 18s ease-in-out infinite alternate;
+}
+
+.bg-layer.kb-3 {
+    animation: kb-3 22s ease-in-out infinite alternate;
+}
+
+.bg-layer.kb-4 {
+    animation: kb-4 19s ease-in-out infinite alternate;
+}

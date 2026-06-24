@@ -5,7 +5,6 @@ if (process.contextIsolated) {
         contextBridge.exposeInMainWorld("relay", {
             getMode: () => ipcRenderer.invoke("get-mode"),
             setMode: (mode: "host" | "client") => ipcRenderer.invoke("set-mode", mode),
-            clearMode: () => ipcRenderer.invoke("clear-mode"),
             getHostConfig: () => ipcRenderer.invoke("get-host-config"),
             registerHost: () => ipcRenderer.invoke("register-host"),
         });
@@ -16,7 +15,6 @@ if (process.contextIsolated) {
     (window as any).relay = {
         getMode: () => ipcRenderer.invoke("get-mode"),
         setMode: (mode: "host" | "client") => ipcRenderer.invoke("set-mode", mode),
-        clearMode: () => ipcRenderer.invoke("clear-mode"),
         getHostConfig: () => ipcRenderer.invoke("get-host-config"),
         registerHost: () => ipcRenderer.invoke("register-host"),
     };

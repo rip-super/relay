@@ -51,19 +51,25 @@ function navigateTo(renderFn: () => void) {
     }, 350);
 }
 
+const KB_VARIANTS = ["kb-1", "kb-2", "kb-3", "kb-4"] as const;
+
+function activateBg(index: number) {
+    const el = document.getElementById(`bg${index}`)!;
+    el.classList.remove(...KB_VARIANTS);
+    void el.offsetWidth;
+    el.classList.add(KB_VARIANTS[Math.floor(Math.random() * KB_VARIANTS.length)]);
+    el.classList.add("active");
+}
+
+function deactivateBg(index: number) {
+    document.getElementById(`bg${index}`)!.classList.remove("active");
+}
+
 async function init() {
     const mode = await relay.getMode();
     if (mode === "host") return renderHost();
     if (mode === "client") return renderClient();
     renderPicker();
-
-    // delete me
-    window.addEventListener("keydown", async e => {
-        if (e.ctrlKey && e.shiftKey && e.key === "R") {
-            await relay.clearMode();
-            location.reload();
-        }
-    })
 }
 
 function preloadImage(url: string): Promise<void> {
@@ -132,7 +138,7 @@ function renderPicker() {
     let orderIndex = 0;
 
     preloadImage(heroUrl(SHOWCASE_GAMES[order[0]].appId)).then(() => {
-        document.getElementById(`bg${order[0]}`)!.classList.add("active");
+        activateBg(order[0]);
         current = order[0];
         label.textContent = SHOWCASE_GAMES[current].name;
         wrap.classList.add("visible");
@@ -140,7 +146,7 @@ function renderPicker() {
     });
 
     setInterval(() => {
-        document.getElementById(`bg${current}`)!.classList.remove("active");
+        deactivateBg(current);
         label.classList.remove("active");
 
         orderIndex++;
@@ -153,7 +159,7 @@ function renderPicker() {
         }
 
         current = order[orderIndex];
-        document.getElementById(`bg${current}`)!.classList.add("active");
+        activateBg(current);
 
         setTimeout(() => {
             label.textContent = SHOWCASE_GAMES[current].name;

@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 
 const configPath = join(app.getPath("userData"), "config.json");
@@ -29,10 +29,6 @@ ipcMain.handle("register-host", async () => {
     const config = getConfig() ?? { mode: "host" as const };
     writeFileSync(configPath, JSON.stringify({ ...config, ...data }));
     return data;
-});
-
-ipcMain.handle("clear-mode", () => {
-    if (existsSync(configPath)) unlinkSync(configPath);
 });
 
 function createWindow(): void {
