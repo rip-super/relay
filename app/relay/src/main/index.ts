@@ -131,6 +131,16 @@ ipcMain.handle("register-host", async () => {
 
 ipcMain.handle("scan-games", () => scanSteamGames());
 
+ipcMain.handle("get-saved-games", () => {
+    const config = getConfig() as any;
+    return config?.games ?? null;
+});
+
+ipcMain.handle("save-games", (_, games: unknown) => {
+    const config = (getConfig() as any) ?? { mode: "host" };
+    writeFileSync(configPath, JSON.stringify({ ...config, games }));
+});
+
 function createWindow(): void {
     const mainWindow = new BrowserWindow({
         width: 1280,

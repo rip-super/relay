@@ -392,6 +392,7 @@ function attachScanHandler() {
         stopAnim();
 
         libraryGames = games.map(g => ({ ...g, lastPlayed: "N/A", platform: "Steam" }));
+        await relay.saveGames(libraryGames);
         const app = document.querySelector<HTMLDivElement>("#app")!;
         app.classList.add("page-exit");
         await new Promise<void>(r => setTimeout(r, 350));
@@ -404,10 +405,44 @@ function attachScanHandler() {
 async function init() {
     const stopAnim = showSplash();
 
-    const [mode] = await Promise.all([
-        relay.getMode(),
+    const [[mode, savedGames]] = await Promise.all([
+        Promise.all([
+            relay.getMode() as Promise<string | null>,
+            relay.getSavedGames() as Promise<LibraryGame[] | null>,
+        ]),
         new Promise<void>(r => setTimeout(r, 5000)),
     ]);
+
+    if (mode === "host" && savedGames?.length) {
+        libraryGames = savedGames;
+
+        const config = await relay.getHostConfig();
+        if (config) {
+            libraryCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
+        }
+
+        const urls: string[] = [];
+        savedGames.forEach((g, i) => {
+            urls.push(portraitUrl(g.appId));
+            if (i < 8) {
+                urls.push(heroUrl(g.appId));
+                urls.push(capsuleUrl(g.appId));
+            }
+        });
+
+        const appEl = document.querySelector<HTMLDivElement>("#app")!;
+        appEl.classList.add("page-exit");
+
+        await Promise.all([
+            Promise.all(urls.map(url => preloadImage(url))),
+            dismissSplash(stopAnim),
+        ]);
+
+        renderHostHome();
+        void appEl.offsetWidth;
+        appEl.classList.remove("page-exit");
+        return;
+    }
 
     if (mode === "host" || mode === "client") {
         const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -702,22 +737,21 @@ function renderHostLibrary() {
 
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div class="host-wrap">
-      <div class="topbar">
-        <div class="topbar-left">
-          <button class="icon-btn" id="backBtn">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <path d="M9.5 3L4.5 7.5L9.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="wordmark-small">Library</div>
+      <div class="hud-pill hud-left">
+        <button class="hud-back-btn" id="backBtn">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M9.5 3L4.5 7.5L9.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="hud-divider"></div>
+        <div class="wordmark-small">Library</div>
+      </div>
+      <div class="hud-right-group">
+        <div class="hud-pill">
+          <span class="code-label">Library code</span>
+          <span class="code-value">${libraryCode}</span>
         </div>
-        <div class="topbar-right">
-          <div class="code-pill">
-            <span class="code-label">Library code</span>
-            <span class="code-value">${libraryCode}</span>
-          </div>
-          <div class="icon-btn">${SETTINGS_SVG}</div>
-        </div>
+        <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
       </div>
       <div class="library-content">
         <div class="library-filter-row">
@@ -738,7 +772,7 @@ function renderHostLibrary() {
     </div>
   `;
 
-    document.getElementById("backBtn")!.addEventListener("click", () => navigateTo(renderHostHome));
+    document.querySelector<HTMLElement>(".hud-left")!.addEventListener("click", () => navigateTo(renderHostHome));
     document.querySelectorAll<HTMLElement>(".library-card").forEach(card => {
         card.addEventListener("click", () => openGameModal(games[parseInt(card.dataset.idx!)]));
     });

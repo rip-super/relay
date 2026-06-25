@@ -1397,3 +1397,43 @@ body {
 .scan-anim-wrap .splash-anim-box {
     box-shadow: none;
 }
+
+.hud-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+}
+
+.hud-back-btn:hover {
+    color: var(--text);
+}
+
+.hud-divider {
+    width: 1px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.library-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 72px 36px 40px;
+}
+
+.hud-left {
+    cursor: pointer;
+}
+
+.game-item-overlay {
+    display: none;
+}
+
+.library-card-overlay {
+    display: none;
+}
