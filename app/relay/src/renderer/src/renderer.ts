@@ -441,8 +441,7 @@ async function renderHost() {
                 <div class="modal-header">Your library code</div>
                 <div class="modal-code">${formattedCode}</div>
                 <p class="modal-desc">
-                    Share this code with anyone you'd like to give access to your library.
-                    They'll enter it on their device in Client mode to connect.
+                    Enter this code on any other device in Client mode to access your games remotely.
                 </p>
                 <button class="scan-btn" id="modalDismiss">Got it</button>
             </div>

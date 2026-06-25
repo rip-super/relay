@@ -43,6 +43,12 @@ body {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+}
+
+.picker-wrap.visible {
+    opacity: 1;
 }
 
 .bg-layer {
@@ -64,11 +70,12 @@ body {
     bottom: 24px;
     right: 28px;
     z-index: 10;
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.3);
-    letter-spacing: 0.06em;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     opacity: 0;
-    transition: opacity 0.8s ease;
+    transition: opacity 1s ease;
 }
 
 .game-label.active {
@@ -88,112 +95,6 @@ body {
     gap: 28px;
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
-}
-
-.wordmark {
-    font-size: 36px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text);
-}
-
-.tagline {
-    font-size: 14px;
-    color: var(--muted);
-    margin-top: -20px;
-    letter-spacing: 0.02em;
-}
-
-.pick-cards {
-    display: flex;
-    gap: 14px;
-}
-
-.pick-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 28px 40px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, transform 0.2s;
-    color: var(--text);
-    min-width: 160px;
-    text-align: center;
-}
-
-.pick-card:hover {
-    background: rgba(79, 142, 247, 0.12);
-    border-color: rgba(79, 142, 247, 0.4);
-    transform: translateY(-2px);
-}
-
-.pick-icon {
-    font-size: 28px;
-}
-
-.pick-card strong {
-    font-size: 15px;
-    font-weight: 500;
-}
-
-.pick-card span {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.5;
-}
-
-.pick-hint {
-    font-size: 11px;
-    color: #2a4a66;
-    letter-spacing: 0.03em;
-}
-
-.screen {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-}
-
-.screen h1 {
-    font-size: 48px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-}
-
-.screen p {
-    color: var(--muted);
-    font-size: 16px;
-}
-
-.picker-wrap {
-    opacity: 0;
-    transition: opacity 1.2s ease;
-}
-
-.picker-wrap.visible {
-    opacity: 1;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-}
-
-.brand-rule {
-    flex: 1;
-    height: 0.5px;
-    background: rgba(255, 255, 255, 0.12);
 }
 
 .wordmark {
@@ -232,6 +133,7 @@ body {
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, transform 0.2s;
     color: var(--text);
+    min-width: 160px;
     text-align: center;
 }
 
@@ -269,21 +171,38 @@ body {
     letter-spacing: 0.05em;
 }
 
-.game-label {
-    position: absolute;
-    bottom: 24px;
-    right: 28px;
-    z-index: 10;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.25);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    opacity: 0;
-    transition: opacity 1s ease;
+.screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
 }
 
-.game-label.active {
-    opacity: 1;
+.screen h1 {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.screen p {
+    color: var(--muted);
+    font-size: 16px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.brand-rule {
+    flex: 1;
+    height: 0.5px;
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .fade-in {
@@ -434,17 +353,19 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 100;
-    animation: fade-in 0.3s ease both;
+    animation: modal-bg-enter 0.4s ease 0.35s both;
+}
+
+.modal-overlay .modal {
+    animation: modal-card-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
 }
 
 .modal-overlay.modal-exit {
-    animation: fade-out 0.3s ease both;
+    animation: modal-bg-exit 0.3s ease both;
 }
 
-@keyframes fade-out {
-    to {
-        opacity: 0;
-    }
+.modal-overlay.modal-exit .modal {
+    animation: modal-card-exit 0.22s ease both;
 }
 
 .modal {
@@ -486,7 +407,12 @@ body {
     line-height: 1.7;
 }
 
-/* New keyframes */
+@keyframes fade-out {
+    to {
+        opacity: 0;
+    }
+}
+
 @keyframes modal-bg-enter {
     from {
         opacity: 0;
@@ -520,31 +446,6 @@ body {
         opacity: 0;
         transform: translateY(12px) scale(0.97);
     }
-}
-
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    animation: modal-bg-enter 0.4s ease 0.35s both;
-}
-
-.modal-overlay .modal {
-    animation: modal-card-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
-}
-
-.modal-overlay.modal-exit {
-    animation: modal-bg-exit 0.3s ease both;
-}
-
-.modal-overlay.modal-exit .modal {
-    animation: modal-card-exit 0.22s ease both;
 }
 
 @keyframes kb-1 {
@@ -634,24 +535,15 @@ body {
     position: relative;
     z-index: 2;
     transition: opacity 0.4s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
 }
 
 .splash-anim.splash-anim-hiding {
     opacity: 0;
-}
-
-#splash.splash-exiting {
-    opacity: 0;
-    transition: opacity 0.5s ease;
-}
-
-.splash-anim {
-    position: relative;
-    z-index: 2;
-    transition: opacity 0.4s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .splash-anim-box {
@@ -675,39 +567,9 @@ body {
     height: 100%;
 }
 
-.splash-anim.splash-anim-hiding {
+#splash.splash-exiting {
     opacity: 0;
-}
-
-.splash-anim {
-    position: relative;
-    z-index: 2;
-    transition: opacity 0.4s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-}
-
-.splash-anim.splash-anim-hiding {
-    opacity: 0;
-}
-
-.splash-game-name {
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.6);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.8s ease 0.3s;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.8);
-}
-
-.splash-game-name.loaded {
-    opacity: 1;
+    transition: opacity 0.5s ease;
 }
 
 .splash-game-name {
