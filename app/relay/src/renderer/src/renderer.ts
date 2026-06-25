@@ -41,8 +41,49 @@ const SHOWCASE_GAMES = [
     { name: "Portal 2", appId: 620 },
 ];
 
-function heroUrl(appId: number): string {
+function heroUrl(appId: string | number): string {
     return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_hero.jpg`;
+}
+
+function portraitUrl(appId: string | number): string {
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+}
+
+function capsuleUrl(appId: string | number): string {
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/capsule_616x353.jpg`;
+}
+
+interface LibraryGame {
+    appId: string;
+    name: string;
+    sizeOnDisk: number;
+    source: string;
+    lastPlayed: string;
+    platform: string;
+}
+
+let libraryGames: LibraryGame[] = [];
+let libraryCode = "";
+
+const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="12" cy="12" r="2" stroke="#ffffff" fill="#000000"/>
+<path d="M5.39856 5.87922L5.64856 5.4462C5.44653 5.32956 5.19069 5.36813 5.03202 5.53914L5.39856 5.87922ZM3.40061 9.3446L2.92283 9.19719C2.85405 9.42011 2.94857 9.66097 3.15061 9.77762L3.40061 9.3446ZM3.3989 14.6564L3.1489 14.2234C2.94667 14.3402 2.85219 14.5813 2.9213 14.8044L3.3989 14.6564ZM5.39889 18.1205L5.03193 18.4602C5.19055 18.6315 5.44666 18.6703 5.64889 18.5535L5.39889 18.1205ZM9.99994 20.775L9.49994 20.775C9.49994 21.0083 9.66127 21.2106 9.88872 21.2625L9.99994 20.775ZM14 20.7774L14.1113 21.2649C14.3387 21.213 14.5 21.0107 14.5 20.7774L14 20.7774ZM18.6014 18.1208L18.3514 18.5538C18.5535 18.6705 18.8093 18.6319 18.968 18.4609L18.6014 18.1208ZM20.5994 14.6554L21.0772 14.8028C21.1459 14.5799 21.0514 14.3391 20.8494 14.2224L20.5994 14.6554ZM20.6011 9.34354L20.8511 9.77656C21.0533 9.6598 21.1478 9.41861 21.0787 9.19556L20.6011 9.34354ZM18.6011 5.87944L18.968 5.53982C18.8094 5.36844 18.5533 5.32967 18.3511 5.44643L18.6011 5.87944ZM14 3.22501L14.5 3.22501C14.5 2.99172 14.3387 2.78944 14.1113 2.73754L14 3.22501ZM9.99994 3.2226L9.8887 2.73513C9.66127 2.78704 9.49994 2.98932 9.49994 3.2226L9.99994 3.2226ZM14 5.07175L13.5 5.07175L14 5.07175ZM19 13.732L18.75 14.165L19 13.732ZM17 17.1962L16.75 17.6292L17 17.1962ZM4.99992 13.7321L5.24992 14.1651L4.99992 13.7321ZM6.99994 6.80377L6.74994 7.23679L6.99994 6.80377ZM3.87839 9.49201C4.24981 8.28817 4.88751 7.16517 5.7651 6.21929L5.03202 5.53914C4.05014 6.59744 3.3376 7.85288 2.92283 9.19719L3.87839 9.49201ZM4.63879 16.25C4.31383 15.6872 4.06077 15.1032 3.8765 14.5084L2.9213 14.8044C3.12745 15.4698 3.41032 16.1222 3.77276 16.75L4.63879 16.25ZM5.76585 17.7809C5.34296 17.324 4.96373 16.8128 4.63879 16.25L3.77276 16.75C4.13519 17.3778 4.55882 17.949 5.03193 18.4602L5.76585 17.7809ZM13.8888 20.29C12.6308 20.577 11.3394 20.5678 10.1112 20.2875L9.88872 21.2625C11.2603 21.5754 12.7038 21.5861 14.1113 21.2649L13.8888 20.29ZM20.1216 14.508C19.7502 15.7119 19.1125 16.8348 18.2349 17.7807L18.968 18.4609C19.9499 17.4026 20.6624 16.1471 21.0772 14.8028L20.1216 14.508ZM19.3612 7.75001C19.6862 8.31284 19.9392 8.89683 20.1235 9.49153L21.0787 9.19556C20.8725 8.53023 20.5897 7.87776 20.2272 7.25001L19.3612 7.75001ZM18.2341 6.21906C18.657 6.67601 19.0363 7.18716 19.3612 7.75001L20.2272 7.25001C19.8648 6.62224 19.4412 6.05103 18.968 5.53982L18.2341 6.21906ZM10.1112 3.71007C11.3691 3.423 12.6605 3.43223 13.8888 3.71248L14.1113 2.73754C12.7397 2.42458 11.2962 2.41394 9.8887 2.73513L10.1112 3.71007ZM10.4999 5.07172L10.4999 3.2226L9.49994 3.2226L9.49994 5.07172L10.4999 5.07172ZM7.24994 6.37076L5.64856 5.4462L5.14856 6.31223L6.74994 7.23679L7.24994 6.37076ZM4.74992 13.2991L3.1489 14.2234L3.6489 15.0894L5.24992 14.1651L4.74992 13.2991ZM5.24992 9.83495L3.65061 8.91159L3.15061 9.77762L4.74992 10.701L5.24992 9.83495ZM10.4999 20.775L10.4999 18.9282L9.49994 18.9282L9.49994 20.775L10.4999 20.775ZM6.74994 16.7632L5.14889 17.6875L5.64889 18.5535L7.24994 17.6292L6.74994 16.7632ZM18.8514 17.6878L17.25 16.7632L16.75 17.6292L18.3514 18.5538L18.8514 17.6878ZM14.5 20.7774L14.5 18.9283L13.5 18.9283L13.5 20.7774L14.5 20.7774ZM20.3511 8.91053L18.75 9.83491L19.25 10.7009L20.8511 9.77656L20.3511 8.91053ZM20.8494 14.2224L19.25 13.299L18.75 14.165L20.3494 15.0884L20.8494 14.2224ZM14.5 5.07175L14.5 3.22501L13.5 3.22501L13.5 5.07175L14.5 5.07175ZM18.3511 5.44643L16.75 6.37079L17.25 7.23681L18.8511 6.31245L18.3511 5.44643ZM13.5 5.07175C13.5 6.99625 15.5834 8.19906 17.25 7.23681L16.75 6.37079C15.75 6.94814 14.5 6.22645 14.5 5.07175L13.5 5.07175ZM18.75 9.83491C17.0834 10.7972 17.0834 13.2028 18.75 14.165L19.25 13.299C18.25 12.7217 18.25 11.2783 19.25 10.7009L18.75 9.83491ZM17.25 16.7632C15.5834 15.801 13.5 17.0038 13.5 18.9283L14.5 18.9283C14.5 17.7736 15.75 17.0519 16.75 17.6292L17.25 16.7632ZM10.4999 18.9282C10.4999 17.0037 8.41661 15.8009 6.74994 16.7632L7.24994 17.6292C8.24994 17.0518 9.49994 17.7735 9.49994 18.9282L10.4999 18.9282ZM5.24992 14.1651C6.91659 13.2028 6.91658 10.7972 5.24992 9.83495L4.74992 10.701C5.74992 11.2783 5.74992 12.7217 4.74992 13.2991L5.24992 14.1651ZM9.49994 5.07172C9.49995 6.22642 8.24995 6.94811 7.24994 6.37076L6.74994 7.23679C8.41661 8.19904 10.4999 6.99623 10.4999 5.07172L9.49994 5.07172Z" fill="#ffffff"/>
+</svg>`;
+
+function makeCrossfader(id0: string, id1: string) {
+    const layers = [document.getElementById(id0)!, document.getElementById(id1)!];
+    let cur = 0, gen = 0;
+    return (url: string) => {
+        gen++;
+        const myGen = gen, nxt = 1 - cur;
+        layers[nxt].style.backgroundImage = `url('${url}')`;
+        layers[nxt].style.zIndex = "1";
+        layers[cur].style.zIndex = "0";
+        layers[nxt].classList.add("active");
+        const old = layers[cur];
+        setTimeout(() => { if (myGen === gen) old.classList.remove("active"); }, 340);
+        cur = nxt;
+    };
 }
 
 const POLE_SVG = `<svg viewBox="0 0 680 340" style="position:absolute;left:0;top:0;width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
@@ -268,10 +309,6 @@ function deactivateBg(index: number) {
     document.getElementById(`bg${index}`)!.classList.remove("active");
 }
 
-function steamCapsuleUrl(appId: string): string {
-    return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-}
-
 function formatBytes(bytes: number): string {
     if (bytes === 0) return "";
     const gb = bytes / 1_073_741_824;
@@ -286,7 +323,7 @@ function attachScanHandler() {
         const content = document.querySelector<HTMLDivElement>(".host-content")!;
 
         btn.disabled = true;
-        btn.textContent = "Scanning…";
+        btn.textContent = "Scanning...";
 
         content.innerHTML = `
       <div class="scan-anim-wrap" id="scanAnimWrap">
@@ -294,7 +331,7 @@ function attachScanHandler() {
           ${POLE_SVG}
           <canvas id="scanCanvas"></canvas>
         </div>
-        <div class="scan-anim-label">Scanning for games…</div>
+        <div class="scan-anim-label" id="scanAnimLabel">Scanning for games...</div>
       </div>
     `;
 
@@ -302,67 +339,65 @@ function attachScanHandler() {
         const canvas = content.querySelector<HTMLCanvasElement>("#scanCanvas")!;
         const stopAnim = startPoleAnimation(canvas);
 
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => wrap.classList.add("scan-visible"));
+        requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add("scan-visible")));
+
+        const games = await relay.scanGames() as Array<{ appId: string; name: string; sizeOnDisk: number; source: string }>;
+
+        if (games.length === 0) {
+            wrap.classList.remove("scan-visible");
+            await new Promise<void>(r => setTimeout(r, 350));
+            stopAnim();
+
+            content.innerHTML = `
+        <div class="scan-results" id="scanResults">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 21h8m-4-4v4"/>
+              </svg>
+            </div>
+            <h2>No games found</h2>
+            <p>Relay couldn't find any installed Steam games on this PC.</p>
+            <button class="scan-btn" id="scanBtn">Try again</button>
+          </div>
+        </div>
+      `;
+            const results = document.getElementById("scanResults")!;
+            requestAnimationFrame(() => requestAnimationFrame(() => results.classList.add("scan-visible")));
+            attachScanHandler();
+            return;
+        }
+
+        const urls: string[] = [];
+        games.forEach((g, i) => {
+            urls.push(portraitUrl(g.appId));
+            if (i < 8) {
+                urls.push(heroUrl(g.appId));
+                urls.push(capsuleUrl(g.appId));
+            }
         });
 
-        const [games] = await Promise.all([
-            relay.scanGames() as Promise<Array<{ appId: string; name: string; sizeOnDisk: number; source: string }>>,
-            new Promise<void>((r) => setTimeout(r, 2000)),
+        await Promise.all([
+            Promise.all(
+                urls.map(url =>
+                    preloadImage(url)
+                )
+            ),
+            new Promise<void>(r => setTimeout(r, 2000)),
         ]);
 
         wrap.classList.remove("scan-visible");
-        await new Promise<void>((r) => setTimeout(r, 350));
+        await new Promise<void>(r => setTimeout(r, 350));
         stopAnim();
 
-        const nextHtml = games.length === 0
-            ? `
-        <div class="empty-state">
-          <div class="empty-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2"/>
-              <path d="M8 21h8m-4-4v4"/>
-            </svg>
-          </div>
-          <h2>No games found</h2>
-          <p>Relay couldn't find any installed Steam games on this PC.</p>
-          <button class="scan-btn" id="scanBtn">Try again</button>
-        </div>
-      `
-            : `
-        <div class="library-header">
-          <span class="library-count">${games.length} game${games.length !== 1 ? "s" : ""}</span>
-          <button class="scan-btn scan-btn-small" id="scanBtn">Rescan</button>
-        </div>
-        <div class="game-grid">
-          ${games.map((g) => `
-            <div class="game-tile" data-appid="${g.appId}">
-              <div class="game-tile-art">
-                <img
-                  src="${steamCapsuleUrl(g.appId)}"
-                  alt="${g.name}"
-                  loading="lazy"
-                  onerror="this.style.display='none'"
-                />
-              </div>
-              <div class="game-tile-info">
-                <span class="game-tile-name">${g.name}</span>
-                ${g.sizeOnDisk ? `<span class="game-tile-size">${formatBytes(g.sizeOnDisk)}</span>` : ""}
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      `;
-
-        content.innerHTML = `<div class="scan-results" id="scanResults">${nextHtml}</div>`;
-
-        const results = document.getElementById("scanResults")!;
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => results.classList.add("scan-visible"));
-        });
-
-        if (games.length === 0) btn.disabled = false;
-        attachScanHandler();
+        libraryGames = games.map(g => ({ ...g, lastPlayed: "N/A", platform: "Steam" }));
+        const app = document.querySelector<HTMLDivElement>("#app")!;
+        app.classList.add("page-exit");
+        await new Promise<void>(r => setTimeout(r, 350));
+        renderHostHome();
+        void app.offsetWidth;
+        app.classList.remove("page-exit");
     };
 }
 
@@ -499,53 +534,51 @@ async function renderHost() {
     const isFirstLaunch = !existing;
     const config = existing ?? await relay.registerHost();
 
-    const formattedCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
+    libraryCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
+
+    if (libraryGames.length > 0) {
+        renderHostHome();
+        return;
+    }
 
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-        <div class="host-wrap">
-            <div class="topbar">
-                <div class="wordmark-small">Relay</div>
-                <div class="topbar-right">
-                    <div class="code-pill">
-                        <span class="code-label">Library code</span>
-                        <span class="code-value">${formattedCode}</span>
-                    </div>
-                    <div class="icon-btn" id="settingsBtn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                    </div>
-                </div>
-            </div>
-            <div class="host-content">
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="3" width="20" height="14" rx="2"/>
-                            <path d="M8 21h8m-4-4v4"/>
-                        </svg>
-                    </div>
-                    <h2>No games in your library</h2>
-                    <p>Relay hasn't scanned for games yet. This only takes a moment.</p>
-                    <button class="scan-btn" id="scanBtn">Scan for games</button>
-                </div>
-            </div>
+  <div class="host-wrap">
+    <div class="hud-pill hud-left">
+      <div class="wordmark-small">Relay</div>
+    </div>
+    <div class="hud-right-group">
+      <div class="hud-pill">
+        <span class="code-label">Library code</span>
+        <span class="code-value">${libraryCode}</span>
+      </div>
+      <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
+    </div>
+    <div class="host-content">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <path d="M8 21h8m-4-4v4"/>
+          </svg>
         </div>
+        <h2>No games in your library</h2>
+        <p>Relay hasn't scanned for games yet. This only takes a moment.</p>
+        <button class="scan-btn" id="scanBtn">Scan for games</button>
+      </div>
+    </div>
+  </div>
 
-        ${isFirstLaunch ? `
-        <div class="modal-overlay" id="codeModal">
-            <div class="modal">
-                <div class="modal-header">Your library code</div>
-                <div class="modal-code">${formattedCode}</div>
-                <p class="modal-desc">
-                    Enter this code on any other device in Client mode to access your games remotely.
-                </p>
-                <button class="scan-btn" id="modalDismiss">Got it</button>
-            </div>
-        </div>
-        ` : ""}
-    `;
+  ${isFirstLaunch ? `
+  <div class="modal-overlay" id="codeModal">
+    <div class="modal">
+      <div class="modal-header">Your library code</div>
+      <div class="modal-code">${libraryCode}</div>
+      <p class="modal-desc">Enter this code on any other device in Client mode to access your games remotely.</p>
+      <button class="scan-btn" id="modalDismiss">Got it</button>
+    </div>
+  </div>
+  ` : ""}
+`;
 
     if (isFirstLaunch) {
         document.getElementById("modalDismiss")!.onclick = () => {
@@ -556,6 +589,224 @@ async function renderHost() {
     }
 
     attachScanHandler();
+}
+
+function renderHostHome() {
+    const games = libraryGames;
+    const recent = games.slice(0, 8);
+    const collage = [
+        games[0],
+        games[Math.floor(games.length / 2)],
+        games[games.length - 1],
+    ].filter(Boolean);
+
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+    <div class="host-wrap">
+      <div class="home-main">
+        <div class="home-bg-layer" id="hbg0"></div>
+        <div class="home-bg-layer" id="hbg1"></div>
+        <div class="home-gradient"></div>
+        <div class="hud-pill hud-left">
+          <div class="wordmark-small">Relay</div>
+        </div>
+        <div class="hud-right-group">
+          <div class="hud-pill">
+            <span class="code-label">Library code</span>
+            <span class="code-value">${libraryCode}</span>
+          </div>
+          <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
+        </div>
+        <div class="home-content">
+          <div class="spotlight">
+            <div class="spotlight-inner" id="spotInner">
+              <div class="spot-genre" id="spotGenre">${recent[0]?.platform ?? ""}</div>
+              <div class="spot-title" id="spotTitle">${recent[0]?.name ?? ""}</div>
+              <div class="spot-meta">
+                <span id="spotLastPlayed">Last played ${recent[0]?.lastPlayed ?? "N/A"}</span>
+                ${recent[0]?.sizeOnDisk ? `<span class="spot-dot">·</span><span>${formatBytes(recent[0].sizeOnDisk)}</span>` : ""}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="section-header">
+              <span class="section-label">Recently Played</span>
+            </div>
+            <div class="recent-row" id="recentRow">
+              ${recent.map((g, i) => `
+                <div class="game-item" data-idx="${i}">
+                  <img class="art-portrait" src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.remove()">
+                  <img class="art-landscape" src="${capsuleUrl(g.appId)}" alt="" onerror="this.remove()">
+                  <div class="game-item-overlay">
+                    <div class="game-item-name">${g.name}</div>
+                  </div>
+                </div>
+              `).join("")}
+              <div class="game-item lib-card" id="libCard">
+                <div class="lib-card-collage">
+                  ${collage.map(g => `<img src="${portraitUrl(g.appId)}" alt="">`).join("")}
+                  <div class="lib-card-collage-overlay"></div>
+                </div>
+                <div class="lib-card-body">
+                  <svg class="lib-card-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  <div class="lib-card-title">Library</div>
+                  <div class="lib-card-sub">${games.length} titles</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+    const setHeroBg = makeCrossfader("hbg0", "hbg1");
+    const row = document.getElementById("recentRow")!;
+    const firstCard = row.querySelector<HTMLElement>('[data-idx="0"]')!;
+    let expandedCard: HTMLElement = firstCard;
+    firstCard.classList.add("js-expanded");
+    if (recent[0]) setHeroBg(heroUrl(recent[0].appId));
+
+    function updateSpotlight(g: LibraryGame) {
+        document.getElementById("spotGenre")!.textContent = g.platform;
+        document.getElementById("spotTitle")!.textContent = g.name;
+        document.getElementById("spotLastPlayed")!.textContent = `Last played ${g.lastPlayed}`;
+    }
+
+    row.querySelectorAll<HTMLElement>(".game-item[data-idx]").forEach(card => {
+        const idx = parseInt(card.dataset.idx!);
+        const game = recent[idx];
+        card.addEventListener("mouseenter", () => {
+            if (expandedCard === card) return;
+            expandedCard?.classList.remove("js-expanded");
+            card.classList.add("js-expanded");
+            expandedCard = card;
+            setHeroBg(heroUrl(game.appId));
+            updateSpotlight(game);
+        });
+        card.addEventListener("click", () => openGameModal(game));
+    });
+
+    const libCard = document.getElementById("libCard")!;
+    libCard.addEventListener("mouseenter", () => expandedCard?.classList.remove("js-expanded"));
+    libCard.addEventListener("click", () => navigateTo(renderHostLibrary));
+    row.addEventListener("mouseleave", () => expandedCard?.classList.add("js-expanded"));
+}
+
+function renderHostLibrary() {
+    const games = libraryGames;
+
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+    <div class="host-wrap">
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn" id="backBtn">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M9.5 3L4.5 7.5L9.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="wordmark-small">Library</div>
+        </div>
+        <div class="topbar-right">
+          <div class="code-pill">
+            <span class="code-label">Library code</span>
+            <span class="code-value">${libraryCode}</span>
+          </div>
+          <div class="icon-btn">${SETTINGS_SVG}</div>
+        </div>
+      </div>
+      <div class="library-content">
+        <div class="library-filter-row">
+          <span class="library-view-title">All Games</span>
+          <span class="library-game-count">${games.length} titles</span>
+        </div>
+        <div class="library-grid">
+          ${games.map((g, i) => `
+            <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
+              <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.opacity='0'">
+              <div class="library-card-overlay">
+                <div class="library-card-name">${g.name}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+    document.getElementById("backBtn")!.addEventListener("click", () => navigateTo(renderHostHome));
+    document.querySelectorAll<HTMLElement>(".library-card").forEach(card => {
+        card.addEventListener("click", () => openGameModal(games[parseInt(card.dataset.idx!)]));
+    });
+}
+
+function openGameModal(g: LibraryGame) {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+    <div class="game-modal">
+      <div class="game-modal-bg" style="background-image: url('${heroUrl(g.appId)}')"></div>
+      <div class="game-modal-vignette"></div>
+      <button class="modal-close-btn" id="modalClose">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="game-modal-inner">
+        <div class="game-modal-art">
+          <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.display='none'"/>
+        </div>
+        <div class="game-modal-info">
+          <div>
+            <div class="game-modal-title">${g.name}</div>
+            <div class="game-modal-genre">${g.platform}</div>
+          </div>
+          <div class="game-modal-rule"></div>
+          <div class="game-modal-stats">
+            <div class="stat-item">
+              <span class="stat-label">Last Played</span>
+              <span class="stat-value">${g.lastPlayed}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Install Size</span>
+              <span class="stat-value">${g.sizeOnDisk ? formatBytes(g.sizeOnDisk) : "N/A"}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Platform</span>
+              <span class="stat-value">${g.platform}</span>
+            </div>
+          </div>
+          <div>
+            <button class="play-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+              </svg>
+              Client mode only
+            </button>
+            <div class="modal-play-hint">Connect as a client to launch games</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+    document.body.appendChild(overlay);
+
+    function close() {
+        overlay.classList.add("modal-exit");
+        setTimeout(() => overlay.remove(), 220);
+    }
+
+    document.getElementById("modalClose")!.addEventListener("click", close);
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+    const onKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); }
+    };
+    document.addEventListener("keydown", onKey);
 }
 
 function renderClient() {
