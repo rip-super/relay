@@ -268,6 +268,104 @@ function deactivateBg(index: number) {
     document.getElementById(`bg${index}`)!.classList.remove("active");
 }
 
+function steamCapsuleUrl(appId: string): string {
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return "";
+    const gb = bytes / 1_073_741_824;
+    return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1_048_576).toFixed(0)} MB`;
+}
+
+function attachScanHandler() {
+    const btn = document.getElementById("scanBtn") as HTMLButtonElement | null;
+    if (!btn) return;
+
+    btn.onclick = async () => {
+        const content = document.querySelector<HTMLDivElement>(".host-content")!;
+
+        btn.disabled = true;
+        btn.textContent = "Scanning…";
+
+        content.innerHTML = `
+      <div class="scan-anim-wrap" id="scanAnimWrap">
+        <div class="splash-anim-box">
+          ${POLE_SVG}
+          <canvas id="scanCanvas"></canvas>
+        </div>
+        <div class="scan-anim-label">Scanning for games…</div>
+      </div>
+    `;
+
+        const wrap = document.getElementById("scanAnimWrap")!;
+        const canvas = content.querySelector<HTMLCanvasElement>("#scanCanvas")!;
+        const stopAnim = startPoleAnimation(canvas);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => wrap.classList.add("scan-visible"));
+        });
+
+        const [games] = await Promise.all([
+            relay.scanGames() as Promise<Array<{ appId: string; name: string; sizeOnDisk: number; source: string }>>,
+            new Promise<void>((r) => setTimeout(r, 2000)),
+        ]);
+
+        wrap.classList.remove("scan-visible");
+        await new Promise<void>((r) => setTimeout(r, 350));
+        stopAnim();
+
+        const nextHtml = games.length === 0
+            ? `
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8m-4-4v4"/>
+            </svg>
+          </div>
+          <h2>No games found</h2>
+          <p>Relay couldn't find any installed Steam games on this PC.</p>
+          <button class="scan-btn" id="scanBtn">Try again</button>
+        </div>
+      `
+            : `
+        <div class="library-header">
+          <span class="library-count">${games.length} game${games.length !== 1 ? "s" : ""}</span>
+          <button class="scan-btn scan-btn-small" id="scanBtn">Rescan</button>
+        </div>
+        <div class="game-grid">
+          ${games.map((g) => `
+            <div class="game-tile" data-appid="${g.appId}">
+              <div class="game-tile-art">
+                <img
+                  src="${steamCapsuleUrl(g.appId)}"
+                  alt="${g.name}"
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
+              </div>
+              <div class="game-tile-info">
+                <span class="game-tile-name">${g.name}</span>
+                ${g.sizeOnDisk ? `<span class="game-tile-size">${formatBytes(g.sizeOnDisk)}</span>` : ""}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+
+        content.innerHTML = `<div class="scan-results" id="scanResults">${nextHtml}</div>`;
+
+        const results = document.getElementById("scanResults")!;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => results.classList.add("scan-visible"));
+        });
+
+        if (games.length === 0) btn.disabled = false;
+        attachScanHandler();
+    };
+}
+
 async function init() {
     const stopAnim = showSplash();
 
@@ -457,9 +555,7 @@ async function renderHost() {
         };
     }
 
-    document.getElementById("scanBtn")!.onclick = () => {
-        console.log("scan triggered - coming soon");
-    };
+    attachScanHandler();
 }
 
 function renderClient() {

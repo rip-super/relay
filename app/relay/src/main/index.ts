@@ -1,7 +1,17 @@
 import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import { homedir } from "os";
+
+// todo: epicgames, gog, etc.
+interface ScannedGame {
+    appId: string;
+    name: string;
+    installDir: string;
+    sizeOnDisk: number;
+    source: "steam";
+}
 
 const configPath = join(app.getPath("userData"), "config.json");
 
@@ -13,6 +23,94 @@ function getConfig(): { mode: "host" | "client" } | null {
 function saveConfig(mode: "host" | "client"): void {
     writeFileSync(configPath, JSON.stringify({ mode }));
 }
+
+function findSteamRoots(): string[] {
+    const home = homedir();
+    const candidates: string[] = [];
+
+    if (process.platform === "win32") {
+        const x86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)";
+        const x64 = process.env["ProgramFiles"] ?? "C:\\Program Files";
+        candidates.push(join(x86, "Steam"), join(x64, "Steam"));
+    } else if (process.platform === "darwin") {
+        candidates.push(join(home, "Library", "Application Support", "Steam"));
+    } else {
+        candidates.push(
+            join(home, ".steam", "steam"),
+            join(home, ".local", "share", "Steam")
+        );
+    }
+
+    return candidates.filter((p) => existsSync(p));
+}
+
+function parseVdfFlat(content: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const match of content.matchAll(/"([^"]+)"\s+"([^"]*)"/g)) {
+        result[match[1].toLowerCase()] = match[2];
+    }
+    return result;
+}
+
+function getLibraryFolders(steamRoot: string): string[] {
+    const defaultApps = join(steamRoot, "steamapps");
+    const folders = new Set<string>([defaultApps]);
+
+    const vdfPath = join(defaultApps, "libraryfolders.vdf");
+    if (existsSync(vdfPath)) {
+        try {
+            const content = readFileSync(vdfPath, "utf-8");
+            for (const match of content.matchAll(/"path"\s+"([^"]+)"/gi)) {
+                folders.add(join(match[1], "steamapps"));
+            }
+        } catch { }
+    }
+
+    return [...folders].filter((p) => existsSync(p));
+}
+
+function scanSteamGames(): ScannedGame[] {
+    const games: ScannedGame[] = [];
+    const seenAppIds = new Set<string>();
+
+    for (const steamRoot of findSteamRoots()) {
+        for (const appsDir of getLibraryFolders(steamRoot)) {
+            let files: string[];
+            try {
+                files = readdirSync(appsDir).filter(
+                    (f) => f.startsWith("appmanifest_") && f.endsWith(".acf")
+                );
+            } catch {
+                continue;
+            }
+
+            for (const file of files) {
+                try {
+                    const content = readFileSync(join(appsDir, file), "utf-8");
+                    const d = parseVdfFlat(content);
+
+                    const stateFlags = parseInt(d["stateflags"] ?? "0", 10);
+                    if (!(stateFlags & 4)) continue;
+
+                    const appId = d["appid"];
+                    if (!appId || seenAppIds.has(appId)) continue;
+                    seenAppIds.add(appId);
+
+                    games.push({
+                        appId,
+                        name: d["name"] ?? `App ${appId}`,
+                        installDir: join(appsDir, "common", d["installdir"] ?? ""),
+                        sizeOnDisk: parseInt(d["sizeondisk"] ?? "0", 10),
+                        source: "steam",
+                    });
+                } catch { }
+            }
+        }
+    }
+
+    return games.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
@@ -30,6 +128,8 @@ ipcMain.handle("register-host", async () => {
     writeFileSync(configPath, JSON.stringify({ ...config, ...data }));
     return data;
 });
+
+ipcMain.handle("scan-games", () => scanSteamGames());
 
 function createWindow(): void {
     const mainWindow = new BrowserWindow({
