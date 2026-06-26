@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 
 const configPath = join(app.getPath("userData"), "config.json");
@@ -16,6 +16,24 @@ function saveConfig(mode: "host" | "client"): void {
 
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
+
+ipcMain.handle("get-host-config", () => {
+    const config = getConfig() as any;
+    if (!config?.hostId) return null;
+    return { hostId: config.hostId, code: config.code };
+});
+
+ipcMain.handle("register-host", async () => {
+    const res = await fetch("http://localhost:6004/hosts/register", { method: "POST" });
+    const data = await res.json() as { hostId: string; code: string };
+    const config = getConfig() ?? { mode: "host" as const };
+    writeFileSync(configPath, JSON.stringify({ ...config, ...data }));
+    return data;
+});
+
+ipcMain.handle("clear-mode", () => {
+    if (existsSync(configPath)) unlinkSync(configPath);
+});
 
 function createWindow(): void {
     const mainWindow = new BrowserWindow({
