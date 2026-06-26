@@ -74,6 +74,7 @@ const RESCAN_SVG = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" 
   <path fill-rule="evenodd" clip-rule="evenodd" d="M1.84998 7.49998C1.84998 4.66458 4.05979 1.84998 7.49998 1.84998C10.2783 1.84998 11.6515 3.9064 12.2367 5H10.5C10.2239 5 10 5.22386 10 5.5C10 5.77614 10.2239 6 10.5 6H13.5C13.7761 6 14 5.77614 14 5.5V2.5C14 2.22386 13.7761 2 13.5 2C13.2239 2 13 2.22386 13 2.5V4.31318C12.2955 3.07126 10.6659 0.849976 7.49998 0.849976C3.43716 0.849976 0.849976 4.18537 0.849976 7.49998C0.849976 10.8146 3.43716 14.15 7.49998 14.15C9.44382 14.15 11.0622 13.3808 12.2145 12.2084C12.8315 11.5806 13.3133 10.839 13.6418 10.0407C13.7469 9.78536 13.6251 9.49315 13.3698 9.38806C13.1144 9.28296 12.8222 9.40478 12.7171 9.66014C12.4363 10.3425 12.0251 10.9745 11.5013 11.5074C10.5295 12.4963 9.16504 13.15 7.49998 13.15C4.05979 13.15 1.84998 10.3354 1.84998 7.49998Z" fill="#ffffff"/>
 </svg>`;
 
+const POWER_SVG = `<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M17.953 5.25a9 9 0 1 1-11.906 0M12 3v9"/></svg>`
 function makeCrossfader(id0: string, id1: string) {
     const layers = [document.getElementById(id0)!, document.getElementById(id1)!];
     let cur = 0, gen = 0;
@@ -317,6 +318,12 @@ function formatBytes(bytes: number): string {
     if (bytes === 0) return "";
     const gb = bytes / 1_073_741_824;
     return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1_048_576).toFixed(0)} MB`;
+}
+
+function attachQuitHandler() {
+    document.getElementById("quitBtn")?.addEventListener("click", () => {
+        relay.quitApp();
+    });
 }
 
 function attachScanHandler() {
@@ -613,8 +620,8 @@ async function renderHost() {
             <span class="code-label">Library code</span>
             <span class="code-value">${libraryCode}</span>
         </div>
-        <div class="hud-pill hud-rescan" id="rescanBtn" title="Rescan for games">${RESCAN_SVG}</div>
-        <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
+        <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+        <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
     </div>
     <div class="host-content">
       <div class="empty-state">
@@ -652,6 +659,7 @@ async function renderHost() {
     }
 
     attachScanHandler();
+    attachQuitHandler();
 }
 
 function renderHostHome() {
@@ -673,12 +681,14 @@ function renderHostHome() {
           <div class="wordmark-small">Relay</div>
         </div>
         <div class="hud-right-group">
-          <div class="hud-pill">
-            <span class="code-label">Library code</span>
-            <span class="code-value">${libraryCode}</span>
-          </div>
-          <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
-        </div>
+  <div class="hud-pill">
+    <span class="code-label">Library code</span>
+    <span class="code-value">${libraryCode}</span>
+  </div>
+  <div class="hud-pill hud-rescan" id="rescanBtn" data-tooltip="Rescan games">${RESCAN_SVG}</div>
+  <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+  <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
+</div>
         <div class="home-content">
           <div class="spotlight">
             <div class="spotlight-inner" id="spotInner">
@@ -766,6 +776,8 @@ function renderHostHome() {
         btn.classList.remove("hud-rescan-spinning");
         if (changed) renderHostHome();
     });
+
+    attachQuitHandler();
 }
 
 function renderHostLibrary() {
@@ -774,7 +786,7 @@ function renderHostLibrary() {
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div class="host-wrap">
       <div class="hud-pill hud-left">
-        <button class="hud-back-btn" id="backBtn">
+        <button class="hud-back-btn" id="backBtn" data-tooltip="Back">
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
             <path d="M9.5 3L4.5 7.5L9.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -783,13 +795,14 @@ function renderHostLibrary() {
         <div class="wordmark-small">Library</div>
       </div>
       <div class="hud-right-group">
-        <div class="hud-pill">
-          <span class="code-label">Library code</span>
-          <span class="code-value">${libraryCode}</span>
-        </div>
-        <div class="hud-pill hud-rescan" id="rescanBtn" title="Rescan for games">${RESCAN_SVG}</div>
-        <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
-      </div>
+  <div class="hud-pill">
+    <span class="code-label">Library code</span>
+    <span class="code-value">${libraryCode}</span>
+  </div>
+  <div class="hud-pill hud-rescan" id="rescanBtn" data-tooltip="Rescan games">${RESCAN_SVG}</div>
+  <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+  <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
+</div>
       <div class="library-content">
         <div class="library-filter-row">
           <span class="library-view-title">All Games</span>
@@ -886,6 +899,8 @@ function openGameModal(g: LibraryGame) {
         if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); }
     };
     document.addEventListener("keydown", onKey);
+
+    attachQuitHandler();
 }
 
 function renderClient() {

@@ -10,6 +10,7 @@ if (process.contextIsolated) {
             scanGames: () => ipcRenderer.invoke("scan-games"),
             getSavedGames: () => ipcRenderer.invoke("get-saved-games"),
             saveGames: (games: any[]) => ipcRenderer.invoke("save-games", games),
+            quitApp: () => ipcRenderer.invoke("quit-app"),
         });
     } catch (error) {
         console.error(error);
@@ -23,5 +24,6 @@ if (process.contextIsolated) {
         scanGames: () => ipcRenderer.invoke("scan-games"),
         getSavedGames: () => ipcRenderer.invoke("get-saved-games"),
         saveGames: (games: any[]) => ipcRenderer.invoke("save-games", games),
+        quitApp: () => ipcRenderer.invoke("quit-app"),
     };
 }

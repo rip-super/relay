@@ -141,6 +141,8 @@ ipcMain.handle("save-games", (_, games: unknown) => {
     writeFileSync(configPath, JSON.stringify({ ...config, games }));
 });
 
+ipcMain.handle("quit-app", () => app.quit());
+
 function createWindow(): void {
     const mainWindow = new BrowserWindow({
         width: 1280,

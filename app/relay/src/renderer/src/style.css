@@ -1463,3 +1463,43 @@ body {
         transform: rotate(360deg);
     }
 }
+
+.hud-quit {
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.hud-quit:hover {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(7, 16, 31, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-family: "Outfit", sans-serif;
+    color: var(--text);
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease 0.4s;
+    z-index: 200;
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+}
