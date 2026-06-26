@@ -11,6 +11,13 @@ if (process.contextIsolated) {
             getSavedGames: () => ipcRenderer.invoke("get-saved-games"),
             saveGames: (games: any[]) => ipcRenderer.invoke("save-games", games),
             quitApp: () => ipcRenderer.invoke("quit-app"),
+            getDevices: () => ipcRenderer.invoke("get-devices"),
+            renameDevice: (id: string, name: string) => ipcRenderer.invoke("rename-device", id, name),
+            revokeDevice: (id: string) => ipcRenderer.invoke("revoke-device", id),
+            regenerateCode: () => ipcRenderer.invoke("regenerate-code"),
+            getStartupSettings: () => ipcRenderer.invoke("get-startup-settings"),
+            setStartupSettings: (s: object) => ipcRenderer.invoke("set-startup-settings", s),
+            getVersion: () => ipcRenderer.invoke("get-version"),
         });
     } catch (error) {
         console.error(error);
@@ -25,5 +32,12 @@ if (process.contextIsolated) {
         getSavedGames: () => ipcRenderer.invoke("get-saved-games"),
         saveGames: (games: any[]) => ipcRenderer.invoke("save-games", games),
         quitApp: () => ipcRenderer.invoke("quit-app"),
+        getDevices: () => ipcRenderer.invoke("get-devices"),
+        renameDevice: (id: string, name: string) => ipcRenderer.invoke("rename-device", id, name),
+        revokeDevice: (id: string) => ipcRenderer.invoke("revoke-device", id),
+        regenerateCode: () => ipcRenderer.invoke("regenerate-code"),
+        getStartupSettings: () => ipcRenderer.invoke("get-startup-settings"),
+        setStartupSettings: (s: object) => ipcRenderer.invoke("set-startup-settings", s),
+        getVersion: () => ipcRenderer.invoke("get-version"),
     };
 }

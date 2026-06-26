@@ -320,10 +320,246 @@ function formatBytes(bytes: number): string {
     return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / 1_048_576).toFixed(0)} MB`;
 }
 
+function formatRelativeTime(iso: string): string {
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+}
+
+async function openSettings() {
+    const [devices, startupSettings, version] = await Promise.all([
+        relay.getDevices() as Promise<Array<{
+            id: string; display_name: string; last_seen: string | null; online: boolean;
+        }>>,
+        relay.getStartupSettings() as Promise<{ launchOnLogin: boolean; startMinimized: boolean }>,
+        relay.getVersion() as Promise<string>,
+    ]);
+
+    function deviceRow(d: { id: string; display_name: string; last_seen: string | null; online: boolean }) {
+        const lastSeen = d.last_seen ? `Last seen ${formatRelativeTime(d.last_seen)}` : "Never connected";
+        return `
+            <div class="settings-device" data-id="${d.id}">
+                <div class="device-status ${d.online ? "online" : ""}"></div>
+                <div class="device-info">
+                    <div class="device-name" data-name="${d.display_name}">${d.display_name}</div>
+                    <div class="device-last-seen">${lastSeen}</div>
+                </div>
+                <div class="device-actions">
+                    <button class="device-btn device-rename-btn" title="Rename">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                    <button class="device-btn device-revoke-btn" title="Revoke access">
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                            <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    const overlay = document.createElement("div");
+    overlay.className = "settings-overlay";
+    overlay.innerHTML = `
+        <div class="settings-backdrop"></div>
+        <div class="settings-drawer">
+            <div class="settings-header">
+                <span class="settings-title">Settings</span>
+                <button class="settings-close" id="settingsClose">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="settings-body">
+                <div class="settings-section">
+                    <div class="settings-section-title">Library</div>
+                    <div class="settings-code-row">
+                        <div class="settings-code-display" id="settingsCodeDisplay">${libraryCode}</div>
+                        <button class="settings-btn-small" id="copyCodeBtn">Copy</button>
+                    </div>
+                    <button class="settings-btn-small settings-btn-danger settings-regen-btn" id="regenCodeBtn">
+                        Regenerate code
+                    </button>
+                    <div class="settings-hint" style="margin-top: 8px">Share this code with devices you want to grant access</div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Connected Devices</div>
+                    ${devices.length === 0
+            ? `<div class="settings-empty">No devices have connected yet</div>`
+            : devices.map(deviceRow).join("")
+        }
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">On Startup</div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Launch on login</div>
+                            <div class="settings-toggle-sub">Start Relay automatically when you log in</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="launchOnLoginToggle" ${startupSettings.launchOnLogin ? "checked" : ""}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Start minimized</div>
+                            <div class="settings-toggle-sub">Open to system tray instead of foreground</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="startMinimizedToggle" ${startupSettings.startMinimized ? "checked" : ""}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Mode</div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Currently: Host</div>
+                            <div class="settings-toggle-sub">This PC is sharing its game library</div>
+                        </div>
+                        <button class="settings-btn-small" id="switchModeBtn">Switch to Client</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-footer">
+                <span class="settings-version">Relay v${version}</span>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add("settings-open")));
+
+    function close() {
+        overlay.classList.remove("settings-open");
+        setTimeout(() => overlay.remove(), 300);
+    }
+
+    overlay.querySelector(".settings-backdrop")!.addEventListener("click", close);
+    document.getElementById("settingsClose")!.addEventListener("click", close);
+
+    document.getElementById("copyCodeBtn")!.addEventListener("click", () => {
+        navigator.clipboard.writeText(libraryCode.replace(/\s/g, ""));
+        const btn = document.getElementById("copyCodeBtn")!;
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+    });
+
+    let regenPending = false;
+    document.getElementById("regenCodeBtn")!.addEventListener("click", async () => {
+        const btn = document.getElementById("regenCodeBtn") as HTMLButtonElement;
+        if (!regenPending) {
+            regenPending = true;
+            btn.textContent = "Are you sure?";
+            setTimeout(() => {
+                if (regenPending) { regenPending = false; btn.textContent = "Regenerate code"; }
+            }, 3000);
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Regenerating...";
+        const newCode = await relay.regenerateCode();
+        if (newCode) {
+            libraryCode = newCode.match(/.{1,4}/g)?.join(" ") ?? newCode;
+            document.getElementById("settingsCodeDisplay")!.textContent = libraryCode;
+            document.querySelectorAll<HTMLElement>(".code-value").forEach(el => {
+                el.textContent = libraryCode;
+            });
+        }
+        regenPending = false;
+        btn.disabled = false;
+        btn.textContent = "Regenerate code";
+    });
+
+    document.getElementById("launchOnLoginToggle")!.addEventListener("change", e => {
+        relay.setStartupSettings({ launchOnLogin: (e.target as HTMLInputElement).checked });
+    });
+    document.getElementById("startMinimizedToggle")!.addEventListener("change", e => {
+        relay.setStartupSettings({ startMinimized: (e.target as HTMLInputElement).checked });
+    });
+
+    document.getElementById("switchModeBtn")!.addEventListener("click", async () => {
+        close();
+        await relay.setMode("client");
+        navigateTo(renderClient);
+    });
+
+    overlay.querySelectorAll<HTMLElement>(".settings-device").forEach(row => {
+        const deviceId = row.dataset.id!;
+
+        row.querySelector(".device-rename-btn")!.addEventListener("click", () => {
+            const nameEl = row.querySelector<HTMLElement>(".device-name")!;
+            const current = nameEl.dataset.name!;
+            nameEl.innerHTML = `
+                <input class="device-name-input" value="${current}" />
+                <button class="device-save-btn">Save</button>
+                <button class="device-cancel-btn">Cancel</button>
+            `;
+            const input = nameEl.querySelector<HTMLInputElement>(".device-name-input")!;
+            input.focus(); input.select();
+
+            nameEl.querySelector(".device-save-btn")!.addEventListener("click", async () => {
+                const newName = input.value.trim();
+                if (!newName) return;
+                await relay.renameDevice(deviceId, newName);
+                nameEl.dataset.name = newName;
+                nameEl.textContent = newName;
+            });
+            nameEl.querySelector(".device-cancel-btn")!.addEventListener("click", () => {
+                nameEl.textContent = current;
+            });
+            input.addEventListener("keydown", e => {
+                if (e.key === "Enter") nameEl.querySelector<HTMLElement>(".device-save-btn")!.click();
+                if (e.key === "Escape") nameEl.querySelector<HTMLElement>(".device-cancel-btn")!.click();
+            });
+        });
+
+        let revokePending = false;
+        row.querySelector(".device-revoke-btn")!.addEventListener("click", async () => {
+            const btn = row.querySelector<HTMLElement>(".device-revoke-btn")!;
+            if (!revokePending) {
+                revokePending = true;
+                btn.style.color = "#e05c5c";
+                btn.style.borderColor = "rgba(224,92,92,0.4)";
+                setTimeout(() => {
+                    if (revokePending) {
+                        revokePending = false;
+                        btn.style.color = "";
+                        btn.style.borderColor = "";
+                    }
+                }, 2500);
+                return;
+            }
+            await relay.revokeDevice(deviceId);
+            row.style.opacity = "0";
+            row.style.transition = "opacity 0.25s ease";
+            setTimeout(() => row.remove(), 260);
+        });
+    });
+}
+
 function attachQuitHandler() {
     document.getElementById("quitBtn")?.addEventListener("click", () => {
         relay.quitApp();
     });
+}
+
+function attachSettingsHandler() {
+    document.getElementById("settingsBtn")?.addEventListener("click", openSettings);
 }
 
 function attachScanHandler() {
@@ -620,7 +856,7 @@ async function renderHost() {
             <span class="code-label">Library code</span>
             <span class="code-value">${libraryCode}</span>
         </div>
-        <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+        <div class="hud-pill hud-settings" id="settingsBtn" data-tooltip="Settings">${SETTINGS_SVG}</div>
         <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
     </div>
     <div class="host-content">
@@ -660,6 +896,7 @@ async function renderHost() {
 
     attachScanHandler();
     attachQuitHandler();
+    attachSettingsHandler();
 }
 
 function renderHostHome() {
@@ -686,7 +923,7 @@ function renderHostHome() {
     <span class="code-value">${libraryCode}</span>
   </div>
   <div class="hud-pill hud-rescan" id="rescanBtn" data-tooltip="Rescan games">${RESCAN_SVG}</div>
-  <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+  <div class="hud-pill hud-settings" id="settingsBtn" data-tooltip="Settings">${SETTINGS_SVG}</div>
   <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
 </div>
         <div class="home-content">
@@ -778,6 +1015,7 @@ function renderHostHome() {
     });
 
     attachQuitHandler();
+    attachSettingsHandler();
 }
 
 function renderHostLibrary() {
@@ -800,7 +1038,7 @@ function renderHostLibrary() {
     <span class="code-value">${libraryCode}</span>
   </div>
   <div class="hud-pill hud-rescan" id="rescanBtn" data-tooltip="Rescan games">${RESCAN_SVG}</div>
-  <div class="hud-pill hud-settings" data-tooltip="Settings">${SETTINGS_SVG}</div>
+  <div class="hud-pill hud-settings" id="settingsBtn" data-tooltip="Settings">${SETTINGS_SVG}</div>
   <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
 </div>
       <div class="library-content">
@@ -834,6 +1072,8 @@ function renderHostLibrary() {
         btn.classList.remove("hud-rescan-spinning");
         if (changed) renderHostLibrary();
     });
+
+    attachSettingsHandler();
 }
 
 function openGameModal(g: LibraryGame) {

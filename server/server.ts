@@ -1,9 +1,7 @@
 import { Hono } from "hono";
-
 import { serve, upgradeWebSocket } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type { WSContext } from "hono/ws";
-
 import { randomBytes } from "crypto";
 import Database from "better-sqlite3";
 
@@ -12,20 +10,41 @@ type SignalMessage = {
     id?: string;
     target?: string;
     payload?: unknown;
-}
+    role?: "host" | "client";
+    hostId?: string;
+    displayName?: string;
+};
 
 const db = new Database("relay.db");
-
 db.exec(`
     CREATE TABLE IF NOT EXISTS hosts (
-        id TEXT PRIMARY KEY,
+        id   TEXT PRIMARY KEY,
         code TEXT UNIQUE NOT NULL
-    )
+    );
+
+    CREATE TABLE IF NOT EXISTS devices (
+        id           TEXT PRIMARY KEY,
+        host_id      TEXT NOT NULL,
+        display_name TEXT NOT NULL DEFAULT 'Unknown Device',
+        last_seen    TEXT,
+        FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE CASCADE
+    );
 `);
 
 const insertHost = db.prepare("INSERT INTO hosts (id, code) VALUES (?, ?)");
 const findByCode = db.prepare("SELECT id FROM hosts WHERE code = ?");
 const findById = db.prepare("SELECT id FROM hosts WHERE id = ?");
+const updateCode = db.prepare("UPDATE hosts SET code = ? WHERE id = ?");
+
+const upsertDevice = db.prepare(`
+    INSERT INTO devices (id, host_id, display_name, last_seen)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET last_seen = excluded.last_seen
+`);
+const renameDevice = db.prepare("UPDATE devices SET display_name = ? WHERE id = ?");
+const deleteDevice = db.prepare("DELETE FROM devices WHERE id = ?");
+const listDevices = db.prepare("SELECT * FROM devices WHERE host_id = ?");
+const findDevice = db.prepare("SELECT * FROM devices WHERE id = ?");
 
 const app = new Hono();
 const peers = new Map<string, WSContext>();
@@ -50,6 +69,47 @@ app.post("/codes/validate", async (c) => {
     return c.json({ valid: true, hostId: host.id });
 });
 
+app.get("/hosts/:hostId/devices", (c) => {
+    const { hostId } = c.req.param();
+    const devices = listDevices.all(hostId) as {
+        id: string; host_id: string; display_name: string; last_seen: string | null;
+    }[];
+    return c.json(devices.map(d => ({ ...d, online: peers.has(d.id) })));
+});
+
+app.patch("/devices/:deviceId/name", async (c) => {
+    const { deviceId } = c.req.param();
+    const { name } = await c.req.json<{ name: string }>();
+    if (!name?.trim()) return c.json({ error: "Name required" }, 400);
+    const device = findDevice.get(deviceId);
+    if (!device) return c.json({ error: "Not found" }, 404);
+    renameDevice.run(name.trim(), deviceId);
+    return c.json({ ok: true });
+});
+
+app.delete("/devices/:deviceId", (c) => {
+    const { deviceId } = c.req.param();
+    const device = findDevice.get(deviceId);
+    if (!device) return c.json({ error: "Not found" }, 404);
+    const ws = peers.get(deviceId);
+    if (ws) {
+        ws.send(JSON.stringify({ type: "revoked" }));
+        ws.close();
+    }
+    deleteDevice.run(deviceId);
+    return c.json({ ok: true });
+});
+
+app.post("/hosts/:hostId/regenerate-code", (c) => {
+    const { hostId } = c.req.param();
+    const host = findById.get(hostId);
+    if (!host) return c.json({ error: "Not found" }, 404);
+    const newCode = randomBytes(4).toString("hex").toUpperCase();
+    updateCode.run(newCode, hostId);
+    console.log(`[host] ${hostId} regenerated code → ${newCode}`);
+    return c.json({ code: newCode });
+});
+
 app.get("/ws", upgradeWebSocket(() => {
     let myId: string | null = null;
     let myWs: WSContext | null = null;
@@ -62,8 +122,19 @@ app.get("/ws", upgradeWebSocket(() => {
             if (msg.type === "register") {
                 myId = msg.id!;
                 peers.set(myId, ws);
-                if (findById.get(myId)) onlineHosts.set(myId, ws);
-                console.log(`[+] ${myId} connected`);
+
+                if (msg.role === "host" || findById.get(myId)) {
+                    onlineHosts.set(myId, ws);
+                } else if (msg.role === "client" && msg.hostId) {
+                    upsertDevice.run(
+                        myId,
+                        msg.hostId,
+                        msg.displayName ?? "Unknown Device",
+                        new Date().toISOString()
+                    );
+                }
+
+                console.log(`[+] ${myId} (${msg.role ?? "unknown"}) connected`);
                 return;
             }
 

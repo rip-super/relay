@@ -21,7 +21,8 @@ function getConfig(): { mode: "host" | "client" } | null {
 }
 
 function saveConfig(mode: "host" | "client"): void {
-    writeFileSync(configPath, JSON.stringify({ mode }));
+    const existing = (getConfig() as any) ?? {};
+    writeFileSync(configPath, JSON.stringify({ ...existing, mode }));
 }
 
 function findSteamRoots(): string[] {
@@ -142,6 +143,56 @@ ipcMain.handle("save-games", (_, games: unknown) => {
 });
 
 ipcMain.handle("quit-app", () => app.quit());
+
+ipcMain.handle("get-devices", async () => {
+    const config = getConfig() as any;
+    if (!config?.hostId) return [];
+    const res = await fetch(`http://localhost:6004/hosts/${config.hostId}/devices`);
+    return res.json();
+});
+
+ipcMain.handle("rename-device", async (_, deviceId: string, name: string) => {
+    const res = await fetch(`http://localhost:6004/devices/${deviceId}/name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    return res.json();
+});
+
+ipcMain.handle("revoke-device", async (_, deviceId: string) => {
+    const res = await fetch(`http://localhost:6004/devices/${deviceId}`, { method: "DELETE" });
+    return res.json();
+});
+
+ipcMain.handle("regenerate-code", async () => {
+    const config = getConfig() as any;
+    if (!config?.hostId) return null;
+    const res = await fetch(`http://localhost:6004/hosts/${config.hostId}/regenerate-code`, { method: "POST" });
+    const data = await res.json() as { code: string };
+    writeFileSync(configPath, JSON.stringify({ ...config, code: data.code }));
+    return data.code;
+});
+
+ipcMain.handle("get-startup-settings", () => {
+    const config = getConfig() as any;
+    return {
+        launchOnLogin: app.getLoginItemSettings().openAtLogin,
+        startMinimized: config?.startMinimized ?? false,
+    };
+});
+
+ipcMain.handle("set-startup-settings", (_, settings: { launchOnLogin?: boolean; startMinimized?: boolean }) => {
+    if (settings.launchOnLogin !== undefined) {
+        app.setLoginItemSettings({ openAtLogin: settings.launchOnLogin });
+    }
+    if (settings.startMinimized !== undefined) {
+        const config = (getConfig() as any) ?? {};
+        writeFileSync(configPath, JSON.stringify({ ...config, startMinimized: settings.startMinimized }));
+    }
+});
+
+ipcMain.handle("get-version", () => app.getVersion());
 
 function createWindow(): void {
     const mainWindow = new BrowserWindow({
