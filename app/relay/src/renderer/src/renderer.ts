@@ -70,6 +70,10 @@ const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none
 <path d="M5.39856 5.87922L5.64856 5.4462C5.44653 5.32956 5.19069 5.36813 5.03202 5.53914L5.39856 5.87922ZM3.40061 9.3446L2.92283 9.19719C2.85405 9.42011 2.94857 9.66097 3.15061 9.77762L3.40061 9.3446ZM3.3989 14.6564L3.1489 14.2234C2.94667 14.3402 2.85219 14.5813 2.9213 14.8044L3.3989 14.6564ZM5.39889 18.1205L5.03193 18.4602C5.19055 18.6315 5.44666 18.6703 5.64889 18.5535L5.39889 18.1205ZM9.99994 20.775L9.49994 20.775C9.49994 21.0083 9.66127 21.2106 9.88872 21.2625L9.99994 20.775ZM14 20.7774L14.1113 21.2649C14.3387 21.213 14.5 21.0107 14.5 20.7774L14 20.7774ZM18.6014 18.1208L18.3514 18.5538C18.5535 18.6705 18.8093 18.6319 18.968 18.4609L18.6014 18.1208ZM20.5994 14.6554L21.0772 14.8028C21.1459 14.5799 21.0514 14.3391 20.8494 14.2224L20.5994 14.6554ZM20.6011 9.34354L20.8511 9.77656C21.0533 9.6598 21.1478 9.41861 21.0787 9.19556L20.6011 9.34354ZM18.6011 5.87944L18.968 5.53982C18.8094 5.36844 18.5533 5.32967 18.3511 5.44643L18.6011 5.87944ZM14 3.22501L14.5 3.22501C14.5 2.99172 14.3387 2.78944 14.1113 2.73754L14 3.22501ZM9.99994 3.2226L9.8887 2.73513C9.66127 2.78704 9.49994 2.98932 9.49994 3.2226L9.99994 3.2226ZM14 5.07175L13.5 5.07175L14 5.07175ZM19 13.732L18.75 14.165L19 13.732ZM17 17.1962L16.75 17.6292L17 17.1962ZM4.99992 13.7321L5.24992 14.1651L4.99992 13.7321ZM6.99994 6.80377L6.74994 7.23679L6.99994 6.80377ZM3.87839 9.49201C4.24981 8.28817 4.88751 7.16517 5.7651 6.21929L5.03202 5.53914C4.05014 6.59744 3.3376 7.85288 2.92283 9.19719L3.87839 9.49201ZM4.63879 16.25C4.31383 15.6872 4.06077 15.1032 3.8765 14.5084L2.9213 14.8044C3.12745 15.4698 3.41032 16.1222 3.77276 16.75L4.63879 16.25ZM5.76585 17.7809C5.34296 17.324 4.96373 16.8128 4.63879 16.25L3.77276 16.75C4.13519 17.3778 4.55882 17.949 5.03193 18.4602L5.76585 17.7809ZM13.8888 20.29C12.6308 20.577 11.3394 20.5678 10.1112 20.2875L9.88872 21.2625C11.2603 21.5754 12.7038 21.5861 14.1113 21.2649L13.8888 20.29ZM20.1216 14.508C19.7502 15.7119 19.1125 16.8348 18.2349 17.7807L18.968 18.4609C19.9499 17.4026 20.6624 16.1471 21.0772 14.8028L20.1216 14.508ZM19.3612 7.75001C19.6862 8.31284 19.9392 8.89683 20.1235 9.49153L21.0787 9.19556C20.8725 8.53023 20.5897 7.87776 20.2272 7.25001L19.3612 7.75001ZM18.2341 6.21906C18.657 6.67601 19.0363 7.18716 19.3612 7.75001L20.2272 7.25001C19.8648 6.62224 19.4412 6.05103 18.968 5.53982L18.2341 6.21906ZM10.1112 3.71007C11.3691 3.423 12.6605 3.43223 13.8888 3.71248L14.1113 2.73754C12.7397 2.42458 11.2962 2.41394 9.8887 2.73513L10.1112 3.71007ZM10.4999 5.07172L10.4999 3.2226L9.49994 3.2226L9.49994 5.07172L10.4999 5.07172ZM7.24994 6.37076L5.64856 5.4462L5.14856 6.31223L6.74994 7.23679L7.24994 6.37076ZM4.74992 13.2991L3.1489 14.2234L3.6489 15.0894L5.24992 14.1651L4.74992 13.2991ZM5.24992 9.83495L3.65061 8.91159L3.15061 9.77762L4.74992 10.701L5.24992 9.83495ZM10.4999 20.775L10.4999 18.9282L9.49994 18.9282L9.49994 20.775L10.4999 20.775ZM6.74994 16.7632L5.14889 17.6875L5.64889 18.5535L7.24994 17.6292L6.74994 16.7632ZM18.8514 17.6878L17.25 16.7632L16.75 17.6292L18.3514 18.5538L18.8514 17.6878ZM14.5 20.7774L14.5 18.9283L13.5 18.9283L13.5 20.7774L14.5 20.7774ZM20.3511 8.91053L18.75 9.83491L19.25 10.7009L20.8511 9.77656L20.3511 8.91053ZM20.8494 14.2224L19.25 13.299L18.75 14.165L20.3494 15.0884L20.8494 14.2224ZM14.5 5.07175L14.5 3.22501L13.5 3.22501L13.5 5.07175L14.5 5.07175ZM18.3511 5.44643L16.75 6.37079L17.25 7.23681L18.8511 6.31245L18.3511 5.44643ZM13.5 5.07175C13.5 6.99625 15.5834 8.19906 17.25 7.23681L16.75 6.37079C15.75 6.94814 14.5 6.22645 14.5 5.07175L13.5 5.07175ZM18.75 9.83491C17.0834 10.7972 17.0834 13.2028 18.75 14.165L19.25 13.299C18.25 12.7217 18.25 11.2783 19.25 10.7009L18.75 9.83491ZM17.25 16.7632C15.5834 15.801 13.5 17.0038 13.5 18.9283L14.5 18.9283C14.5 17.7736 15.75 17.0519 16.75 17.6292L17.25 16.7632ZM10.4999 18.9282C10.4999 17.0037 8.41661 15.8009 6.74994 16.7632L7.24994 17.6292C8.24994 17.0518 9.49994 17.7735 9.49994 18.9282L10.4999 18.9282ZM5.24992 14.1651C6.91659 13.2028 6.91658 10.7972 5.24992 9.83495L4.74992 10.701C5.74992 11.2783 5.74992 12.7217 4.74992 13.2991L5.24992 14.1651ZM9.49994 5.07172C9.49995 6.22642 8.24995 6.94811 7.24994 6.37076L6.74994 7.23679C8.41661 8.19904 10.4999 6.99623 10.4999 5.07172L9.49994 5.07172Z" fill="#ffffff"/>
 </svg>`;
 
+const RESCAN_SVG = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M1.84998 7.49998C1.84998 4.66458 4.05979 1.84998 7.49998 1.84998C10.2783 1.84998 11.6515 3.9064 12.2367 5H10.5C10.2239 5 10 5.22386 10 5.5C10 5.77614 10.2239 6 10.5 6H13.5C13.7761 6 14 5.77614 14 5.5V2.5C14 2.22386 13.7761 2 13.5 2C13.2239 2 13 2.22386 13 2.5V4.31318C12.2955 3.07126 10.6659 0.849976 7.49998 0.849976C3.43716 0.849976 0.849976 4.18537 0.849976 7.49998C0.849976 10.8146 3.43716 14.15 7.49998 14.15C9.44382 14.15 11.0622 13.3808 12.2145 12.2084C12.8315 11.5806 13.3133 10.839 13.6418 10.0407C13.7469 9.78536 13.6251 9.49315 13.3698 9.38806C13.1144 9.28296 12.8222 9.40478 12.7171 9.66014C12.4363 10.3425 12.0251 10.9745 11.5013 11.5074C10.5295 12.4963 9.16504 13.15 7.49998 13.15C4.05979 13.15 1.84998 10.3354 1.84998 7.49998Z" fill="#ffffff"/>
+</svg>`;
+
 function makeCrossfader(id0: string, id1: string) {
     const layers = [document.getElementById(id0)!, document.getElementById(id1)!];
     let cur = 0, gen = 0;
@@ -402,6 +406,27 @@ function attachScanHandler() {
     };
 }
 
+async function rescanLibrary(): Promise<boolean> {
+    const fresh = await relay.scanGames() as Array<{
+        appId: string; name: string; sizeOnDisk: number; source: string;
+    }>;
+    if (fresh.length === 0) return false;
+
+    const existingIds = new Set(libraryGames.map(g => g.appId));
+    const freshIds = new Set(fresh.map(g => g.appId));
+
+    const changed =
+        fresh.length !== libraryGames.length ||
+        fresh.some(g => !existingIds.has(g.appId)) ||
+        libraryGames.some(g => !freshIds.has(g.appId));
+
+    if (changed) {
+        libraryGames = fresh.map(g => ({ ...g, lastPlayed: "N/A", platform: "Steam" }));
+        await relay.saveGames(libraryGames);
+    }
+    return changed;
+}
+
 async function init() {
     const stopAnim = showSplash();
 
@@ -441,6 +466,8 @@ async function init() {
         renderHostHome();
         void appEl.offsetWidth;
         appEl.classList.remove("page-exit");
+
+        rescanLibrary().then(changed => { if (changed) renderHostHome(); });
         return;
     }
 
@@ -582,11 +609,12 @@ async function renderHost() {
       <div class="wordmark-small">Relay</div>
     </div>
     <div class="hud-right-group">
-      <div class="hud-pill">
-        <span class="code-label">Library code</span>
-        <span class="code-value">${libraryCode}</span>
-      </div>
-      <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
+        <div class="hud-pill">
+            <span class="code-label">Library code</span>
+            <span class="code-value">${libraryCode}</span>
+        </div>
+        <div class="hud-pill hud-rescan" id="rescanBtn" title="Rescan for games">${RESCAN_SVG}</div>
+        <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
     </div>
     <div class="host-content">
       <div class="empty-state">
@@ -730,6 +758,14 @@ function renderHostHome() {
     libCard.addEventListener("mouseenter", () => expandedCard?.classList.remove("js-expanded"));
     libCard.addEventListener("click", () => navigateTo(renderHostLibrary));
     row.addEventListener("mouseleave", () => expandedCard?.classList.add("js-expanded"));
+
+    document.getElementById("rescanBtn")?.addEventListener("click", async () => {
+        const btn = document.getElementById("rescanBtn")!;
+        btn.classList.add("hud-rescan-spinning");
+        const changed = await rescanLibrary();
+        btn.classList.remove("hud-rescan-spinning");
+        if (changed) renderHostHome();
+    });
 }
 
 function renderHostLibrary() {
@@ -751,6 +787,7 @@ function renderHostLibrary() {
           <span class="code-label">Library code</span>
           <span class="code-value">${libraryCode}</span>
         </div>
+        <div class="hud-pill hud-rescan" id="rescanBtn" title="Rescan for games">${RESCAN_SVG}</div>
         <div class="hud-pill hud-settings">${SETTINGS_SVG}</div>
       </div>
       <div class="library-content">
@@ -775,6 +812,14 @@ function renderHostLibrary() {
     document.querySelector<HTMLElement>(".hud-left")!.addEventListener("click", () => navigateTo(renderHostHome));
     document.querySelectorAll<HTMLElement>(".library-card").forEach(card => {
         card.addEventListener("click", () => openGameModal(games[parseInt(card.dataset.idx!)]));
+    });
+
+    document.getElementById("rescanBtn")?.addEventListener("click", async () => {
+        const btn = document.getElementById("rescanBtn")!;
+        btn.classList.add("hud-rescan-spinning");
+        const changed = await rescanLibrary();
+        btn.classList.remove("hud-rescan-spinning");
+        if (changed) renderHostLibrary();
     });
 }
 
