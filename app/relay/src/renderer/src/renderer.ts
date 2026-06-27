@@ -60,6 +60,9 @@ interface LibraryGame {
     source: string;
     lastPlayed: string;
     platform: string;
+    installDir: string;
+    executablePath: string;
+    launchConfig: { type: string; exePath?: string };
 }
 
 let libraryGames: LibraryGame[] = [];
@@ -897,7 +900,15 @@ function attachScanHandler() {
         await new Promise<void>(r => setTimeout(r, 350));
         stopAnim();
 
-        libraryGames = games.map(g => ({ ...g, lastPlayed: "N/A", platform: "Steam" }));
+        libraryGames = games.map(g => ({
+            lastPlayed: "N/A",
+            platform: "Steam",
+            installDir: "",
+            executablePath: "",
+            launchConfig: { type: "steam" as const },
+            ...g,
+        }));
+
         await relay.saveGames(libraryGames);
         const app = document.querySelector<HTMLDivElement>("#app")!;
         app.classList.add("page-exit");
@@ -923,7 +934,14 @@ async function rescanLibrary(): Promise<boolean> {
         libraryGames.some(g => !freshIds.has(g.appId));
 
     if (changed) {
-        libraryGames = fresh.map(g => ({ ...g, lastPlayed: "N/A", platform: "Steam" }));
+        libraryGames = fresh.map(g => ({
+            lastPlayed: "N/A",
+            platform: "Steam",
+            installDir: "",
+            executablePath: "",
+            launchConfig: { type: "steam" as const },
+            ...g,
+        }));
         await relay.saveGames(libraryGames);
     }
     return changed;
@@ -943,7 +961,15 @@ async function init() {
     currentMode = (mode as "host" | "client" | null);
 
     if (mode === "host" && savedGames?.length) {
-        libraryGames = savedGames;
+        libraryGames = (savedGames as any[]).map(g => ({
+            lastPlayed: "N/A",
+            platform: "Steam",
+            installDir: "",
+            executablePath: "",
+            launchConfig: { type: "steam" as const },
+            ...g,
+        }));
+
         const config = await relay.getHostConfig();
         if (config) {
             libraryCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
@@ -1455,9 +1481,18 @@ function openGameModal(g: LibraryGame) {
     document.body.appendChild(overlay);
 
     if (currentMode === "client") {
-        document.getElementById("playBtn")?.addEventListener("click", () => {
+        document.getElementById("playBtn")?.addEventListener("click", async () => {
             // TODO: initiate WebRTC stream session with host for game: g.appId
-            console.log("[relay] play requested:", g.name, g.appId);
+            const btn = document.getElementById("playBtn") as HTMLButtonElement;
+            btn.disabled = true;
+            btn.textContent = "Launching...";
+            await relay.launchGame(g);
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+            </svg> Play`;
+            }, 4000);
         });
     }
 

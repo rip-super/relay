@@ -1,14 +1,17 @@
 import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
-import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { homedir, hostname } from "os";
+import { spawn } from "child_process";
 
 // todo: epicgames, gog, etc.
 interface ScannedGame {
     appId: string;
     name: string;
     installDir: string;
+    executablePath: string;
+    launchConfig: { type: "steam" | "exe"; exePath?: string };
     sizeOnDisk: number;
     source: "steam";
 }
@@ -70,6 +73,30 @@ function getLibraryFolders(steamRoot: string): string[] {
     return [...folders].filter((p) => existsSync(p));
 }
 
+const EXE_BLACKLIST = new Set([
+    "unins000.exe", "uninstall.exe", "crashpad_handler.exe",
+    "unitycrashandler64.exe", "unitycrashandler32.exe",
+    "dxsetup.exe", "vcredist_x64.exe", "vcredist_x86.exe",
+    "vc_redist.x64.exe", "vc_redist.x86.exe", "dotnetfx.exe",
+]);
+
+function findBestExe(installDir: string): string {
+    let bestPath = "";
+    let bestSize = 0;
+    try {
+        for (const file of readdirSync(installDir)) {
+            if (!file.toLowerCase().endsWith(".exe")) continue;
+            if (EXE_BLACKLIST.has(file.toLowerCase())) continue;
+            const fullPath = join(installDir, file);
+            try {
+                const size = statSync(fullPath).size;
+                if (size > bestSize) { bestSize = size; bestPath = fullPath; }
+            } catch { }
+        }
+    } catch { }
+    return bestPath;
+}
+
 function scanSteamGames(): ScannedGame[] {
     const games: ScannedGame[] = [];
     const seenAppIds = new Set<string>();
@@ -97,10 +124,15 @@ function scanSteamGames(): ScannedGame[] {
                     if (!appId || seenAppIds.has(appId)) continue;
                     seenAppIds.add(appId);
 
+                    const installDir = join(appsDir, "common", d["installdir"] ?? "");
+                    const executablePath = findBestExe(installDir);
+
                     games.push({
                         appId,
                         name: d["name"] ?? `App ${appId}`,
-                        installDir: join(appsDir, "common", d["installdir"] ?? ""),
+                        installDir,
+                        executablePath,
+                        launchConfig: { type: "steam", exePath: executablePath },
                         sizeOnDisk: parseInt(d["sizeondisk"] ?? "0", 10),
                         source: "steam",
                     });
@@ -249,6 +281,16 @@ ipcMain.handle("set-startup-settings", (_, settings: { launchOnLogin?: boolean; 
 });
 
 ipcMain.handle("get-version", () => app.getVersion());
+
+ipcMain.handle("launch-game", async (_, game: { appId: string; source: string; installDir: string; launchConfig: { type: string; exePath?: string } }) => {
+    if (game.launchConfig.type === "steam") {
+        shell.openExternal(`steam://rungameid/${game.appId}`);
+    } else if (game.launchConfig.exePath) {
+        spawn(game.launchConfig.exePath, [], {
+            detached: true, stdio: "ignore", cwd: game.installDir,
+        }).unref();
+    }
+});
 
 function createWindow(): void {
     const mainWindow = new BrowserWindow({

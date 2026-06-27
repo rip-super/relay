@@ -2018,3 +2018,30 @@ body {
 .library-search::placeholder {
     color: var(--muted);
 }
+
+.play-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 26px;
+    background: var(--accent);
+    border: none;
+    border-radius: 9px;
+    font-family: "Outfit", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+    opacity: 1;
+    transition: opacity 0.15s;
+}
+
+.play-btn:hover {
+    opacity: 0.88;
+}
+
+.play-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+}

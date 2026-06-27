@@ -24,6 +24,7 @@ if (process.contextIsolated) {
             getClientConfig: () => ipcRenderer.invoke("get-client-config"),
             saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
             getHostname: () => ipcRenderer.invoke("get-hostname"),
+            launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
         });
     } catch (error) {
         console.error(error);
@@ -51,5 +52,6 @@ if (process.contextIsolated) {
         getClientConfig: () => ipcRenderer.invoke("get-client-config"),
         saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
         getHostname: () => ipcRenderer.invoke("get-hostname"),
+        launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
     };
 }
