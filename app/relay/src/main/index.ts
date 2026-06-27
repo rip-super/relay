@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
-import { homedir } from "os";
+import { homedir, hostname } from "os";
 
 // todo: epicgames, gog, etc.
 interface ScannedGame {
@@ -137,10 +137,66 @@ ipcMain.handle("get-saved-games", () => {
     return config?.games ?? null;
 });
 
-ipcMain.handle("save-games", (_, games: unknown) => {
+ipcMain.handle("save-games", async (_, games: unknown) => {
     const config = (getConfig() as any) ?? { mode: "host" };
     writeFileSync(configPath, JSON.stringify({ ...config, games }));
+    if (config.hostId) {
+        fetch(`http://localhost:6004/hosts/${config.hostId}/library`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ games }),
+        }).catch(() => { });
+    }
 });
+
+ipcMain.handle("push-library", async () => {
+    const config = getConfig() as any;
+    if (!config?.hostId || !config?.games) return;
+    await fetch(`http://localhost:6004/hosts/${config.hostId}/library`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ games: config.games }),
+    }).catch(() => { });
+});
+
+ipcMain.handle("get-host-library", async (_, hostId: string) => {
+    const res = await fetch(`http://localhost:6004/hosts/${hostId}/library`);
+    if (!res.ok) return null;
+    return res.json();
+});
+
+ipcMain.handle("validate-code", async (_, code: string) => {
+    const res = await fetch("http://localhost:6004/codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as any;
+        return { valid: false, reason: data.reason };
+    }
+    return res.json();
+});
+
+ipcMain.handle("get-client-config", () => {
+    const config = getConfig() as any;
+    if (!config?.clientId) return null;
+    return {
+        clientId: config.clientId,
+        hostId: config.hostId,
+        hostCode: config.hostCode,
+        displayName: config.displayName,
+    };
+});
+
+ipcMain.handle("save-client-config", (_, data: {
+    clientId: string; hostId: string; hostCode: string; displayName: string;
+}) => {
+    const config = (getConfig() as any) ?? { mode: "client" };
+    writeFileSync(configPath, JSON.stringify({ ...config, ...data }));
+});
+
+ipcMain.handle("get-hostname", () => hostname());
 
 ipcMain.handle("quit-app", () => app.quit());
 

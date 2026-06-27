@@ -18,6 +18,12 @@ if (process.contextIsolated) {
             getStartupSettings: () => ipcRenderer.invoke("get-startup-settings"),
             setStartupSettings: (s: object) => ipcRenderer.invoke("set-startup-settings", s),
             getVersion: () => ipcRenderer.invoke("get-version"),
+            pushLibrary: () => ipcRenderer.invoke("push-library"),
+            getHostLibrary: (hostId: string) => ipcRenderer.invoke("get-host-library", hostId),
+            validateCode: (code: string) => ipcRenderer.invoke("validate-code", code),
+            getClientConfig: () => ipcRenderer.invoke("get-client-config"),
+            saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
+            getHostname: () => ipcRenderer.invoke("get-hostname"),
         });
     } catch (error) {
         console.error(error);
@@ -39,5 +45,11 @@ if (process.contextIsolated) {
         getStartupSettings: () => ipcRenderer.invoke("get-startup-settings"),
         setStartupSettings: (s: object) => ipcRenderer.invoke("set-startup-settings", s),
         getVersion: () => ipcRenderer.invoke("get-version"),
+        pushLibrary: () => ipcRenderer.invoke("push-library"),
+        getHostLibrary: (hostId: string) => ipcRenderer.invoke("get-host-library", hostId),
+        validateCode: (code: string) => ipcRenderer.invoke("validate-code", code),
+        getClientConfig: () => ipcRenderer.invoke("get-client-config"),
+        saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
+        getHostname: () => ipcRenderer.invoke("get-hostname"),
     };
 }

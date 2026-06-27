@@ -65,6 +65,23 @@ interface LibraryGame {
 let libraryGames: LibraryGame[] = [];
 let libraryCode = "";
 
+let currentMode: "host" | "client" | null = null;
+
+let clientId = "";
+let clientHostId = "";
+let clientHostCode = "";
+let clientDisplayName = "";
+
+let hostWsInstance: WebSocket | null = null;
+let clientWsInstance: WebSocket | null = null;
+
+type DeviceEvent =
+    | { type: "device-joined"; device: { id: string; display_name: string; last_seen: string; online: boolean } }
+    | { type: "device-left"; deviceId: string }
+    | { type: "device-renamed"; deviceId: string; name: string };
+
+let onDeviceEvent: ((e: DeviceEvent) => void) | null = null;
+
 const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <circle cx="12" cy="12" r="2" stroke="#ffffff" fill="#000000"/>
 <path d="M5.39856 5.87922L5.64856 5.4462C5.44653 5.32956 5.19069 5.36813 5.03202 5.53914L5.39856 5.87922ZM3.40061 9.3446L2.92283 9.19719C2.85405 9.42011 2.94857 9.66097 3.15061 9.77762L3.40061 9.3446ZM3.3989 14.6564L3.1489 14.2234C2.94667 14.3402 2.85219 14.5813 2.9213 14.8044L3.3989 14.6564ZM5.39889 18.1205L5.03193 18.4602C5.19055 18.6315 5.44666 18.6703 5.64889 18.5535L5.39889 18.1205ZM9.99994 20.775L9.49994 20.775C9.49994 21.0083 9.66127 21.2106 9.88872 21.2625L9.99994 20.775ZM14 20.7774L14.1113 21.2649C14.3387 21.213 14.5 21.0107 14.5 20.7774L14 20.7774ZM18.6014 18.1208L18.3514 18.5538C18.5535 18.6705 18.8093 18.6319 18.968 18.4609L18.6014 18.1208ZM20.5994 14.6554L21.0772 14.8028C21.1459 14.5799 21.0514 14.3391 20.8494 14.2224L20.5994 14.6554ZM20.6011 9.34354L20.8511 9.77656C21.0533 9.6598 21.1478 9.41861 21.0787 9.19556L20.6011 9.34354ZM18.6011 5.87944L18.968 5.53982C18.8094 5.36844 18.5533 5.32967 18.3511 5.44643L18.6011 5.87944ZM14 3.22501L14.5 3.22501C14.5 2.99172 14.3387 2.78944 14.1113 2.73754L14 3.22501ZM9.99994 3.2226L9.8887 2.73513C9.66127 2.78704 9.49994 2.98932 9.49994 3.2226L9.99994 3.2226ZM14 5.07175L13.5 5.07175L14 5.07175ZM19 13.732L18.75 14.165L19 13.732ZM17 17.1962L16.75 17.6292L17 17.1962ZM4.99992 13.7321L5.24992 14.1651L4.99992 13.7321ZM6.99994 6.80377L6.74994 7.23679L6.99994 6.80377ZM3.87839 9.49201C4.24981 8.28817 4.88751 7.16517 5.7651 6.21929L5.03202 5.53914C4.05014 6.59744 3.3376 7.85288 2.92283 9.19719L3.87839 9.49201ZM4.63879 16.25C4.31383 15.6872 4.06077 15.1032 3.8765 14.5084L2.9213 14.8044C3.12745 15.4698 3.41032 16.1222 3.77276 16.75L4.63879 16.25ZM5.76585 17.7809C5.34296 17.324 4.96373 16.8128 4.63879 16.25L3.77276 16.75C4.13519 17.3778 4.55882 17.949 5.03193 18.4602L5.76585 17.7809ZM13.8888 20.29C12.6308 20.577 11.3394 20.5678 10.1112 20.2875L9.88872 21.2625C11.2603 21.5754 12.7038 21.5861 14.1113 21.2649L13.8888 20.29ZM20.1216 14.508C19.7502 15.7119 19.1125 16.8348 18.2349 17.7807L18.968 18.4609C19.9499 17.4026 20.6624 16.1471 21.0772 14.8028L20.1216 14.508ZM19.3612 7.75001C19.6862 8.31284 19.9392 8.89683 20.1235 9.49153L21.0787 9.19556C20.8725 8.53023 20.5897 7.87776 20.2272 7.25001L19.3612 7.75001ZM18.2341 6.21906C18.657 6.67601 19.0363 7.18716 19.3612 7.75001L20.2272 7.25001C19.8648 6.62224 19.4412 6.05103 18.968 5.53982L18.2341 6.21906ZM10.1112 3.71007C11.3691 3.423 12.6605 3.43223 13.8888 3.71248L14.1113 2.73754C12.7397 2.42458 11.2962 2.41394 9.8887 2.73513L10.1112 3.71007ZM10.4999 5.07172L10.4999 3.2226L9.49994 3.2226L9.49994 5.07172L10.4999 5.07172ZM7.24994 6.37076L5.64856 5.4462L5.14856 6.31223L6.74994 7.23679L7.24994 6.37076ZM4.74992 13.2991L3.1489 14.2234L3.6489 15.0894L5.24992 14.1651L4.74992 13.2991ZM5.24992 9.83495L3.65061 8.91159L3.15061 9.77762L4.74992 10.701L5.24992 9.83495ZM10.4999 20.775L10.4999 18.9282L9.49994 18.9282L9.49994 20.775L10.4999 20.775ZM6.74994 16.7632L5.14889 17.6875L5.64889 18.5535L7.24994 17.6292L6.74994 16.7632ZM18.8514 17.6878L17.25 16.7632L16.75 17.6292L18.3514 18.5538L18.8514 17.6878ZM14.5 20.7774L14.5 18.9283L13.5 18.9283L13.5 20.7774L14.5 20.7774ZM20.3511 8.91053L18.75 9.83491L19.25 10.7009L20.8511 9.77656L20.3511 8.91053ZM20.8494 14.2224L19.25 13.299L18.75 14.165L20.3494 15.0884L20.8494 14.2224ZM14.5 5.07175L14.5 3.22501L13.5 3.22501L13.5 5.07175L14.5 5.07175ZM18.3511 5.44643L16.75 6.37079L17.25 7.23681L18.8511 6.31245L18.3511 5.44643ZM13.5 5.07175C13.5 6.99625 15.5834 8.19906 17.25 7.23681L16.75 6.37079C15.75 6.94814 14.5 6.22645 14.5 5.07175L13.5 5.07175ZM18.75 9.83491C17.0834 10.7972 17.0834 13.2028 18.75 14.165L19.25 13.299C18.25 12.7217 18.25 11.2783 19.25 10.7009L18.75 9.83491ZM17.25 16.7632C15.5834 15.801 13.5 17.0038 13.5 18.9283L14.5 18.9283C14.5 17.7736 15.75 17.0519 16.75 17.6292L17.25 16.7632ZM10.4999 18.9282C10.4999 17.0037 8.41661 15.8009 6.74994 16.7632L7.24994 17.6292C8.24994 17.0518 9.49994 17.7735 9.49994 18.9282L10.4999 18.9282ZM5.24992 14.1651C6.91659 13.2028 6.91658 10.7972 5.24992 9.83495L4.74992 10.701C5.74992 11.2783 5.74992 12.7217 4.74992 13.2991L5.24992 14.1651ZM9.49994 5.07172C9.49995 6.22642 8.24995 6.94811 7.24994 6.37076L6.74994 7.23679C8.41661 8.19904 10.4999 6.99623 10.4999 5.07172L9.49994 5.07172Z" fill="#ffffff"/>
@@ -290,7 +307,11 @@ function navigateTo(renderFn: () => Promise<void> | void) {
     app.addEventListener(
         "transitionend",
         async () => {
-            await renderFn();
+            try {
+                await renderFn();
+            } catch (err) {
+                console.error("[relay] navigation error:", err);
+            }
             void app.offsetWidth;
             app.classList.remove("page-exit");
         },
@@ -329,6 +350,133 @@ function formatRelativeTime(iso: string): string {
     return `${Math.floor(hours / 24)}d ago`;
 }
 
+function connectHostWebSocket(hostId: string) {
+    if (hostWsInstance?.readyState === WebSocket.OPEN ||
+        hostWsInstance?.readyState === WebSocket.CONNECTING) return;
+
+    hostWsInstance = new WebSocket("ws://localhost:6004/ws");
+    hostWsInstance.onopen = () => {
+        hostWsInstance!.send(JSON.stringify({ type: "register", id: hostId, role: "host" }));
+    };
+    hostWsInstance.onmessage = (event) => {
+        const msg = JSON.parse(event.data as string) as DeviceEvent;
+        if (msg.type === "device-joined" || msg.type === "device-left" || msg.type === "device-renamed") {
+            onDeviceEvent?.(msg);
+        }
+    };
+    hostWsInstance.onclose = () => setTimeout(() => connectHostWebSocket(hostId), 3000);
+}
+
+function connectClientWebSocket() {
+    if (clientWsInstance?.readyState === WebSocket.OPEN ||
+        clientWsInstance?.readyState === WebSocket.CONNECTING) return;
+
+    clientWsInstance = new WebSocket("ws://localhost:6004/ws");
+    clientWsInstance.onopen = () => {
+        clientWsInstance!.send(JSON.stringify({
+            type: "register",
+            id: clientId,
+            role: "client",
+            hostId: clientHostId,
+            displayName: clientDisplayName,
+        }));
+    };
+    clientWsInstance.onmessage = (event) => {
+        const msg = JSON.parse(event.data as string);
+
+        function closeSettingsIfOpen() {
+            const settingsOverlay = document.querySelector<HTMLElement>(".settings-overlay");
+            if (settingsOverlay) {
+                settingsOverlay.classList.remove("settings-open");
+                setTimeout(() => settingsOverlay.remove(), 300);
+            }
+        }
+
+        if (msg.type === "revoked") {
+            closeSettingsIfOpen();
+            clientHostId = ""; clientHostCode = "";
+            relay.saveClientConfig({ clientId, hostId: "", hostCode: "", displayName: clientDisplayName });
+            clientWsInstance?.close();
+            clientWsInstance = null;
+            navigateTo(() => renderClientCodeEntry("revoked"));
+        } else if (msg.type === "code-changed") {
+            closeSettingsIfOpen();
+            clientHostId = ""; clientHostCode = "";
+            relay.saveClientConfig({ clientId, hostId: "", hostCode: "", displayName: clientDisplayName });
+            clientWsInstance?.close();
+            clientWsInstance = null;
+            navigateTo(() => renderClientCodeEntry("code-changed"));
+        } else if (msg.type === "name-updated") {
+            clientDisplayName = msg.name;
+            relay.saveClientConfig({
+                clientId, hostId: clientHostId,
+                hostCode: clientHostCode.replace(/\s/g, ""), displayName: msg.name,
+            });
+            const nameInput = document.getElementById("deviceNameInput") as HTMLInputElement | null;
+            if (nameInput) nameInput.value = msg.name;
+        }
+    };
+    clientWsInstance.onclose = () => {
+        if (clientHostId) setTimeout(connectClientWebSocket, 3000);
+    };
+}
+
+function attachDeviceRowHandlers(row: HTMLElement) {
+    const deviceId = row.dataset.id!;
+
+    row.querySelector(".device-rename-btn")?.addEventListener("click", () => {
+        const nameEl = row.querySelector<HTMLElement>(".device-name")!;
+        const current = nameEl.dataset.name!;
+        nameEl.innerHTML = `
+            <input class="device-name-input" value="${current}" />
+            <button class="device-save-btn">Save</button>
+            <button class="device-cancel-btn">Cancel</button>
+        `;
+        const input = nameEl.querySelector<HTMLInputElement>(".device-name-input")!;
+        input.focus(); input.select();
+        nameEl.querySelector(".device-save-btn")!.addEventListener("click", async () => {
+            const newName = input.value.trim();
+            if (!newName) return;
+            await relay.renameDevice(deviceId, newName);
+            nameEl.dataset.name = newName;
+            nameEl.textContent = newName;
+            nameEl.dataset.name = newName;
+        });
+        nameEl.querySelector(".device-cancel-btn")!.addEventListener("click", () => {
+            nameEl.textContent = current;
+        });
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter") nameEl.querySelector<HTMLElement>(".device-save-btn")!.click();
+            if (e.key === "Escape") nameEl.querySelector<HTMLElement>(".device-cancel-btn")!.click();
+        });
+    });
+
+    const SVG_X = `<svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+
+    let revokePending = false;
+    const revokeBtn = row.querySelector<HTMLElement>(".device-revoke-btn")!;
+
+    revokeBtn.addEventListener("click", async () => {
+        if (!revokePending) {
+            revokePending = true;
+            revokeBtn.innerHTML = `<span class="revoke-confirm-text">Remove?</span>`;
+            revokeBtn.classList.add("device-revoke-pending");
+            setTimeout(() => {
+                if (revokePending) {
+                    revokePending = false;
+                    revokeBtn.innerHTML = SVG_X;
+                    revokeBtn.classList.remove("device-revoke-pending");
+                }
+            }, 2500);
+            return;
+        }
+        await relay.revokeDevice(deviceId);
+        row.style.opacity = "0";
+        row.style.transition = "opacity 0.25s ease";
+        setTimeout(() => row.remove(), 260);
+    });
+}
+
 async function openSettings() {
     const [devices, startupSettings, version] = await Promise.all([
         relay.getDevices() as Promise<Array<{
@@ -360,8 +508,7 @@ async function openSettings() {
                         </svg>
                     </button>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 
     const overlay = document.createElement("div");
@@ -377,7 +524,6 @@ async function openSettings() {
                     </svg>
                 </button>
             </div>
-
             <div class="settings-body">
                 <div class="settings-section">
                     <div class="settings-section-title">Library</div>
@@ -385,20 +531,17 @@ async function openSettings() {
                         <div class="settings-code-display" id="settingsCodeDisplay">${libraryCode}</div>
                         <button class="settings-btn-small" id="copyCodeBtn">Copy</button>
                     </div>
-                    <button class="settings-btn-small settings-btn-danger settings-regen-btn" id="regenCodeBtn">
-                        Regenerate code
-                    </button>
+                    <button class="settings-btn-small settings-btn-danger settings-regen-btn" id="regenCodeBtn">Regenerate code</button>
                     <div class="settings-hint" style="margin-top: 8px">Share this code with devices you want to grant access</div>
                 </div>
-
                 <div class="settings-section">
                     <div class="settings-section-title">Connected Devices</div>
-                    ${devices.length === 0
+                    <div class="settings-devices-list">
+                        ${devices.length === 0
             ? `<div class="settings-empty">No devices have connected yet</div>`
-            : devices.map(deviceRow).join("")
-        }
+            : devices.map(deviceRow).join("")}
+                    </div>
                 </div>
-
                 <div class="settings-section">
                     <div class="settings-section-title">On Startup</div>
                     <div class="settings-toggle-row">
@@ -422,7 +565,6 @@ async function openSettings() {
                         </label>
                     </div>
                 </div>
-
                 <div class="settings-section">
                     <div class="settings-section-title">Mode</div>
                     <div class="settings-toggle-row">
@@ -434,17 +576,16 @@ async function openSettings() {
                     </div>
                 </div>
             </div>
-
             <div class="settings-footer">
                 <span class="settings-version">Relay v${version}</span>
             </div>
-        </div>
-    `;
+        </div>`;
 
     document.body.appendChild(overlay);
     requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add("settings-open")));
 
     function close() {
+        onDeviceEvent = null;
         overlay.classList.remove("settings-open");
         setTimeout(() => overlay.remove(), 300);
     }
@@ -465,24 +606,17 @@ async function openSettings() {
         if (!regenPending) {
             regenPending = true;
             btn.textContent = "Are you sure?";
-            setTimeout(() => {
-                if (regenPending) { regenPending = false; btn.textContent = "Regenerate code"; }
-            }, 3000);
+            setTimeout(() => { if (regenPending) { regenPending = false; btn.textContent = "Regenerate code"; } }, 3000);
             return;
         }
-        btn.disabled = true;
-        btn.textContent = "Regenerating...";
+        btn.disabled = true; btn.textContent = "Regenerating...";
         const newCode = await relay.regenerateCode();
         if (newCode) {
             libraryCode = newCode.match(/.{1,4}/g)?.join(" ") ?? newCode;
             document.getElementById("settingsCodeDisplay")!.textContent = libraryCode;
-            document.querySelectorAll<HTMLElement>(".code-value").forEach(el => {
-                el.textContent = libraryCode;
-            });
+            document.querySelectorAll<HTMLElement>(".code-value").forEach(el => { el.textContent = libraryCode; });
         }
-        regenPending = false;
-        btn.disabled = false;
-        btn.textContent = "Regenerate code";
+        regenPending = false; btn.disabled = false; btn.textContent = "Regenerate code";
     });
 
     document.getElementById("launchOnLoginToggle")!.addEventListener("change", e => {
@@ -493,62 +627,185 @@ async function openSettings() {
     });
 
     document.getElementById("switchModeBtn")!.addEventListener("click", async () => {
+        hostWsInstance?.close(); hostWsInstance = null;
+        libraryGames = []; libraryCode = "";
         close();
         await relay.setMode("client");
-        navigateTo(renderClient);
+        await relay.saveGames([]);
+        currentMode = "client";
+        navigateTo(renderClientCodeEntry);
     });
 
-    overlay.querySelectorAll<HTMLElement>(".settings-device").forEach(row => {
-        const deviceId = row.dataset.id!;
+    overlay.querySelectorAll<HTMLElement>(".settings-device").forEach(row => attachDeviceRowHandlers(row));
 
-        row.querySelector(".device-rename-btn")!.addEventListener("click", () => {
-            const nameEl = row.querySelector<HTMLElement>(".device-name")!;
-            const current = nameEl.dataset.name!;
-            nameEl.innerHTML = `
-                <input class="device-name-input" value="${current}" />
-                <button class="device-save-btn">Save</button>
-                <button class="device-cancel-btn">Cancel</button>
-            `;
-            const input = nameEl.querySelector<HTMLInputElement>(".device-name-input")!;
-            input.focus(); input.select();
-
-            nameEl.querySelector(".device-save-btn")!.addEventListener("click", async () => {
-                const newName = input.value.trim();
-                if (!newName) return;
-                await relay.renameDevice(deviceId, newName);
-                nameEl.dataset.name = newName;
-                nameEl.textContent = newName;
-            });
-            nameEl.querySelector(".device-cancel-btn")!.addEventListener("click", () => {
-                nameEl.textContent = current;
-            });
-            input.addEventListener("keydown", e => {
-                if (e.key === "Enter") nameEl.querySelector<HTMLElement>(".device-save-btn")!.click();
-                if (e.key === "Escape") nameEl.querySelector<HTMLElement>(".device-cancel-btn")!.click();
-            });
-        });
-
-        let revokePending = false;
-        row.querySelector(".device-revoke-btn")!.addEventListener("click", async () => {
-            const btn = row.querySelector<HTMLElement>(".device-revoke-btn")!;
-            if (!revokePending) {
-                revokePending = true;
-                btn.style.color = "#e05c5c";
-                btn.style.borderColor = "rgba(224,92,92,0.4)";
-                setTimeout(() => {
-                    if (revokePending) {
-                        revokePending = false;
-                        btn.style.color = "";
-                        btn.style.borderColor = "";
-                    }
-                }, 2500);
-                return;
+    const devicesList = overlay.querySelector<HTMLElement>(".settings-devices-list")!;
+    onDeviceEvent = (event) => {
+        if (event.type === "device-joined") {
+            const empty = devicesList.querySelector(".settings-empty");
+            if (empty) empty.remove();
+            if (devicesList.querySelector(`[data-id="${event.device.id}"]`)) return;
+            const tmp = document.createElement("div");
+            tmp.innerHTML = deviceRow(event.device);
+            const newRow = tmp.firstElementChild as HTMLElement;
+            devicesList.appendChild(newRow);
+            attachDeviceRowHandlers(newRow);
+        } else if (event.type === "device-left") {
+            const row = devicesList.querySelector<HTMLElement>(`[data-id="${event.deviceId}"]`);
+            if (row) {
+                row.querySelector(".device-status")?.classList.remove("online");
+                const lastSeenEl = row.querySelector<HTMLElement>(".device-last-seen");
+                if (lastSeenEl) lastSeenEl.textContent = "Just disconnected";
             }
-            await relay.revokeDevice(deviceId);
-            row.style.opacity = "0";
-            row.style.transition = "opacity 0.25s ease";
-            setTimeout(() => row.remove(), 260);
-        });
+        } else if (event.type === "device-renamed") {
+            const row = devicesList.querySelector<HTMLElement>(`[data-id="${event.deviceId}"]`);
+            if (row) {
+                const nameEl = row.querySelector<HTMLElement>(".device-name");
+                if (nameEl && !nameEl.querySelector("input")) {
+                    nameEl.textContent = event.name;
+                    nameEl.dataset.name = event.name;
+                }
+            }
+        }
+    };
+}
+
+async function openClientSettings() {
+    const [startupSettings, version] = await Promise.all([
+        relay.getStartupSettings() as Promise<{ launchOnLogin: boolean; startMinimized: boolean }>,
+        relay.getVersion() as Promise<string>,
+    ]);
+
+    const overlay = document.createElement("div");
+    overlay.className = "settings-overlay";
+    overlay.innerHTML = `
+        <div class="settings-backdrop"></div>
+        <div class="settings-drawer">
+            <div class="settings-header">
+                <span class="settings-title">Settings</span>
+                <button class="settings-close" id="settingsClose">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-section">
+                    <div class="settings-section-title">This Device</div>
+                    <div class="settings-toggle-label" style="margin-bottom: 6px">Display Name</div>
+                    <div class="settings-toggle-sub" style="margin-bottom: 10px">How this device appears to the host</div>
+                    <div class="settings-name-edit">
+                        <input class="device-name-input settings-name-input" id="deviceNameInput" value="${clientDisplayName}" />
+                        <button class="settings-btn-small" id="saveNameBtn">Save</button>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <div class="settings-section-title">Library</div>
+                    <div class="settings-toggle-row" style="margin-bottom: 12px">
+                        <div>
+                            <div class="settings-toggle-label">Connected to</div>
+                            <div class="settings-toggle-sub">Host library code</div>
+                        </div>
+                        <span class="code-value" style="font-size: 14px">${clientHostCode}</span>
+                    </div>
+                    <button class="settings-btn-small settings-btn-danger settings-regen-btn" id="leaveLibraryBtn">Leave library</button>
+                    <div class="settings-hint" style="margin-top: 8px">You'll need to enter a new code to reconnect</div>
+                </div>
+                <div class="settings-section">
+                    <div class="settings-section-title">On Startup</div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Launch on login</div>
+                            <div class="settings-toggle-sub">Start Relay automatically when you log in</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="launchOnLoginToggle" ${startupSettings.launchOnLogin ? "checked" : ""}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Start minimized</div>
+                            <div class="settings-toggle-sub">Open to system tray instead of foreground</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="startMinimizedToggle" ${startupSettings.startMinimized ? "checked" : ""}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <div class="settings-section-title">Mode</div>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <div class="settings-toggle-label">Currently: Client</div>
+                            <div class="settings-toggle-sub">Playing games from a remote library</div>
+                        </div>
+                        <button class="settings-btn-small" id="switchModeBtn">Switch to Host</button>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-footer">
+                <span class="settings-version">Relay v${version}</span>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add("settings-open")));
+
+    function close() {
+        overlay.classList.remove("settings-open");
+        setTimeout(() => overlay.remove(), 300);
+    }
+
+    overlay.querySelector(".settings-backdrop")!.addEventListener("click", close);
+    document.getElementById("settingsClose")!.addEventListener("click", close);
+
+    document.getElementById("saveNameBtn")!.addEventListener("click", async () => {
+        const input = document.getElementById("deviceNameInput") as HTMLInputElement;
+        const newName = input.value.trim();
+        if (!newName || newName === clientDisplayName) return;
+        const btn = document.getElementById("saveNameBtn") as HTMLButtonElement;
+        btn.disabled = true; btn.textContent = "Saving...";
+        clientDisplayName = newName;
+        await relay.saveClientConfig({ clientId, hostId: clientHostId, hostCode: clientHostCode.replace(/\s/g, ""), displayName: newName });
+        await relay.renameDevice(clientId, newName);
+        btn.disabled = false; btn.textContent = "Saved!";
+        setTimeout(() => { btn.textContent = "Save"; }, 1500);
+    });
+
+    let leavePending = false;
+    document.getElementById("leaveLibraryBtn")!.addEventListener("click", async () => {
+        const btn = document.getElementById("leaveLibraryBtn") as HTMLButtonElement;
+        if (!leavePending) {
+            leavePending = true;
+            btn.textContent = "Are you sure?";
+            setTimeout(() => { if (leavePending) { leavePending = false; btn.textContent = "Leave library"; } }, 3000);
+            return;
+        }
+        clientId = ""; clientHostId = ""; clientHostCode = ""; clientDisplayName = "";
+        clientWsInstance?.close(); clientWsInstance = null;
+        await relay.saveClientConfig({ clientId: "", hostId: "", hostCode: "", displayName: "" });
+        close();
+        navigateTo(renderClientCodeEntry);
+    });
+
+    document.getElementById("launchOnLoginToggle")!.addEventListener("change", e => {
+        relay.setStartupSettings({ launchOnLogin: (e.target as HTMLInputElement).checked });
+    });
+    document.getElementById("startMinimizedToggle")!.addEventListener("change", e => {
+        relay.setStartupSettings({ startMinimized: (e.target as HTMLInputElement).checked });
+    });
+
+    document.getElementById("switchModeBtn")!.addEventListener("click", async () => {
+        clientWsInstance?.close(); clientWsInstance = null;
+        clientId = ""; clientHostId = ""; clientHostCode = ""; clientDisplayName = "";
+        libraryGames = []; libraryCode = "";
+        close();
+        await relay.setMode("host");
+        await relay.saveGames([]);
+        await relay.saveClientConfig({ clientId: "", hostId: "", hostCode: "", displayName: "" });
+        currentMode = "host";
+        navigateTo(renderHost);
     });
 }
 
@@ -559,7 +816,9 @@ function attachQuitHandler() {
 }
 
 function attachSettingsHandler() {
-    document.getElementById("settingsBtn")?.addEventListener("click", openSettings);
+    document.getElementById("settingsBtn")?.addEventListener("click",
+        currentMode === "client" ? openClientSettings : openSettings
+    );
 }
 
 function attachScanHandler() {
@@ -681,51 +940,77 @@ async function init() {
         new Promise<void>(r => setTimeout(r, 5000)),
     ]);
 
+    currentMode = (mode as "host" | "client" | null);
+
     if (mode === "host" && savedGames?.length) {
         libraryGames = savedGames;
-
         const config = await relay.getHostConfig();
         if (config) {
             libraryCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
+            connectHostWebSocket(config.hostId);
+            relay.pushLibrary();
         }
-
         const urls: string[] = [];
         savedGames.forEach((g, i) => {
             urls.push(portraitUrl(g.appId));
-            if (i < 8) {
-                urls.push(heroUrl(g.appId));
-                urls.push(capsuleUrl(g.appId));
-            }
+            if (i < 8) { urls.push(heroUrl(g.appId)); urls.push(capsuleUrl(g.appId)); }
         });
-
         const appEl = document.querySelector<HTMLDivElement>("#app")!;
         appEl.classList.add("page-exit");
-
-        await Promise.all([
-            Promise.all(urls.map(url => preloadImage(url))),
-            dismissSplash(stopAnim),
-        ]);
-
+        await Promise.all([Promise.all(urls.map(preloadImage)), dismissSplash(stopAnim)]);
         renderHostHome();
         void appEl.offsetWidth;
         appEl.classList.remove("page-exit");
-
         rescanLibrary().then(changed => { if (changed) renderHostHome(); });
         return;
     }
 
-    if (mode === "host" || mode === "client") {
-        const app = document.querySelector<HTMLDivElement>("#app")!;
-        app.classList.add("page-exit");
+    if (mode === "host") {
+        const appEl = document.querySelector<HTMLDivElement>("#app")!;
+        appEl.classList.add("page-exit");
         await dismissSplash(stopAnim);
-        if (mode === "host") await renderHost();
-        else renderClient();
-        void app.offsetWidth;
-        app.classList.remove("page-exit");
-    } else {
-        renderPicker();
-        await dismissSplashToPicker(stopAnim);
+        await renderHost();
+        void appEl.offsetWidth;
+        appEl.classList.remove("page-exit");
+        return;
     }
+
+    if (mode === "client") {
+        const savedConfig = await relay.getClientConfig() as {
+            clientId: string; hostId: string; hostCode: string; displayName: string;
+        } | null;
+
+        const appEl = document.querySelector<HTMLDivElement>("#app")!;
+        appEl.classList.add("page-exit");
+        await dismissSplash(stopAnim);
+
+        if (savedConfig?.hostId && savedConfig.clientId) {
+            clientId = savedConfig.clientId;
+            clientHostId = savedConfig.hostId;
+            clientHostCode = savedConfig.hostCode.match(/.{1,4}/g)?.join(" ") ?? savedConfig.hostCode;
+            clientDisplayName = savedConfig.displayName;
+
+            const library = await relay.getHostLibrary(clientHostId) as LibraryGame[] | null;
+            if (library?.length) {
+                libraryGames = library;
+                const urls = library.slice(0, 8).flatMap(g => [portraitUrl(g.appId), heroUrl(g.appId), capsuleUrl(g.appId)]);
+                await Promise.all(urls.map(preloadImage));
+                renderClientHome();
+                connectClientWebSocket();
+            } else {
+                renderClientCodeEntry("offline");
+            }
+        } else {
+            renderClientCodeEntry();
+        }
+
+        void appEl.offsetWidth;
+        appEl.classList.remove("page-exit");
+        return;
+    }
+
+    renderPicker();
+    await dismissSplashToPicker(stopAnim);
 }
 
 function preloadImage(url: string): Promise<void> {
@@ -830,7 +1115,8 @@ function renderPicker() {
 
     document.getElementById("clientBtn")!.onclick = async () => {
         await relay.setMode("client");
-        navigateTo(renderClient);
+        currentMode = "client";
+        navigateTo(renderClientCodeEntry);
     };
 }
 
@@ -840,6 +1126,7 @@ async function renderHost() {
     const config = existing ?? await relay.registerHost();
 
     libraryCode = config.code.match(/.{1,4}/g)?.join(" ") ?? config.code;
+    connectHostWebSocket(config.hostId);
 
     if (libraryGames.length > 0) {
         renderHostHome();
@@ -1113,13 +1400,21 @@ function openGameModal(g: LibraryGame) {
             </div>
           </div>
           <div>
-            <button class="play-btn" disabled>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-              </svg>
-              Client mode only
-            </button>
-            <div class="modal-play-hint">Connect as a client to launch games</div>
+            ${currentMode === "client"
+            ? `<button class="play-btn" id="playBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+                    </svg>
+                    Play
+                </button>`
+            : `<button class="play-btn" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+                    </svg>
+                    Client mode only
+                </button>
+                <div class="modal-play-hint">Connect as a client to launch games</div>`
+        }
           </div>
         </div>
       </div>
@@ -1127,6 +1422,13 @@ function openGameModal(g: LibraryGame) {
   `;
 
     document.body.appendChild(overlay);
+
+    if (currentMode === "client") {
+        document.getElementById("playBtn")?.addEventListener("click", () => {
+            // TODO: initiate WebRTC stream session with host for game: g.appId
+            console.log("[relay] play requested:", g.name, g.appId);
+        });
+    }
 
     function close() {
         overlay.classList.add("modal-exit");
@@ -1143,17 +1445,308 @@ function openGameModal(g: LibraryGame) {
     attachQuitHandler();
 }
 
-function renderClient() {
+function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") {
+    const errorMsg = reason === "revoked"
+        ? "Your access was revoked by the host."
+        : reason === "code-changed"
+            ? "The host changed their library code. Enter the new code to reconnect."
+            : reason === "offline"
+                ? "The host is offline. Check that the host machine is running Relay."
+                : "";
+
+    const bgLayers = SHOWCASE_GAMES.map((game, i) =>
+        `<div class="bg-layer" id="bg${i}" style="background-image: url('${heroUrl(game.appId)}')"></div>`
+    ).join("");
+
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-        <div class="host-wrap">
-            <div class="topbar">
-                <div class="wordmark-small">Relay</div>
+        <div class="picker-wrap" id="pickerWrap">
+            ${bgLayers}
+            <div class="game-label" id="gameLabel"></div>
+            <div class="glass-card">
+                <div class="brand">
+                    <div class="brand-rule"></div>
+                    <div class="wordmark">Relay</div>
+                    <div class="brand-rule"></div>
+                </div>
+                <div class="tagline">Enter a library code to connect</div>
+                ${errorMsg ? `<div class="code-entry-error">${errorMsg}</div>` : ""}
+                <div class="code-input-wrap">
+                    <input class="code-input" id="codeInput" placeholder="XXXX XXXX"
+                        maxlength="9" autocomplete="off" spellcheck="false" />
+                </div>
+                <div class="code-entry-error" id="codeError" style="display:none"></div>
+                <button class="scan-btn code-connect-btn" id="connectBtn">Connect</button>
+                <div class="pick-hint">Get this code from the host device running Relay</div>
             </div>
-            <div class="host-content">
-                <p style="color: var(--muted)">Client UI coming soon</p>
-            </div>
+        </div>`;
+
+    const wrap = document.getElementById("pickerWrap")!;
+    const label = document.getElementById("gameLabel")!;
+    const order = [...SHOWCASE_GAMES.keys()].sort(() => Math.random() - 0.5);
+    let current = 0, orderIndex = 0;
+
+    preloadImage(heroUrl(SHOWCASE_GAMES[order[0]].appId)).then(() => {
+        activateBg(order[0]);
+        current = order[0];
+        label.textContent = SHOWCASE_GAMES[current].name;
+        wrap.classList.add("visible");
+        setTimeout(() => label.classList.add("active"), 800);
+    });
+
+    setInterval(() => {
+        deactivateBg(current); label.classList.remove("active");
+        orderIndex = (orderIndex + 1) % order.length;
+        current = order[orderIndex];
+        activateBg(current);
+        setTimeout(() => { label.textContent = SHOWCASE_GAMES[current].name; label.classList.add("active"); }, 600);
+    }, 12000);
+
+    const codeInput = document.getElementById("codeInput") as HTMLInputElement;
+    codeInput.addEventListener("input", () => {
+        const raw = codeInput.value.replace(/\s/g, "").toUpperCase().replace(/[^A-F0-9]/g, "").slice(0, 8);
+        codeInput.value = raw.length > 4 ? raw.slice(0, 4) + " " + raw.slice(4) : raw;
+    });
+
+    codeInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") document.getElementById("connectBtn")?.click();
+    });
+
+    function showError(msg: string) {
+        const el = document.getElementById("codeError")!;
+        el.textContent = msg; el.style.display = "block";
+    }
+
+    document.getElementById("connectBtn")!.addEventListener("click", async () => {
+        const raw = codeInput.value.replace(/\s/g, "");
+        if (raw.length !== 8) { showError("Enter the full 8-character code."); return; }
+
+        const btn = document.getElementById("connectBtn") as HTMLButtonElement;
+        btn.disabled = true; btn.textContent = "Connecting...";
+        document.getElementById("codeError")!.style.display = "none";
+
+        const result = await relay.validateCode(raw) as { valid: boolean; reason?: string; hostId?: string };
+
+        if (!result.valid) {
+            btn.disabled = false; btn.textContent = "Connect";
+            showError(result.reason === "host offline"
+                ? "Host is offline. Ask the host to open Relay and try again."
+                : "Invalid code. Double-check with the host and try again.");
+            return;
+        }
+
+        if (!clientId) {
+            const buf = new Uint8Array(8);
+            crypto.getRandomValues(buf);
+            clientId = Array.from(buf).map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+
+        clientHostId = result.hostId!;
+        clientHostCode = raw.match(/.{1,4}/g)?.join(" ") ?? raw;
+        clientDisplayName = clientDisplayName || await relay.getHostname();
+
+        await relay.saveClientConfig({
+            clientId,
+            hostId: clientHostId,
+            hostCode: raw,
+            displayName: clientDisplayName,
+        });
+
+        const pickerWrap = document.getElementById("pickerWrap")!;
+        const glassCard = pickerWrap.querySelector<HTMLElement>(".glass-card")!;
+        const gameLabel = document.getElementById("gameLabel")!;
+
+        glassCard.style.transition = "opacity 0.3s ease";
+        glassCard.style.opacity = "0";
+        gameLabel.style.transition = "opacity 0.3s ease";
+        gameLabel.style.opacity = "0";
+        await new Promise<void>(r => setTimeout(r, 300));
+        glassCard.remove();
+
+        const animEl = document.createElement("div");
+        animEl.className = "connect-anim-wrap";
+        animEl.innerHTML = `
+    <div class="splash-anim-box">
+        ${POLE_SVG}
+        <canvas id="connectCanvas"></canvas>
+    </div>
+    <div class="scan-anim-label">Connecting to library...</div>
+`;
+        pickerWrap.appendChild(animEl);
+        requestAnimationFrame(() => requestAnimationFrame(() => animEl.classList.add("connect-anim-visible")));
+
+        const connectCanvas = animEl.querySelector<HTMLCanvasElement>("#connectCanvas")!;
+        const stopConnectAnim = startPoleAnimation(connectCanvas);
+
+        const library = await relay.getHostLibrary(clientHostId) as LibraryGame[] | null;
+
+        const urls: string[] = [];
+        if (library?.length) {
+            library.forEach((g, i) => {
+                urls.push(portraitUrl(g.appId));
+                if (i < 8) {
+                    urls.push(heroUrl(g.appId));
+                    urls.push(capsuleUrl(g.appId));
+                }
+            });
+        }
+
+        await Promise.all([
+            Promise.all(urls.map(preloadImage)),
+            new Promise<void>(r => setTimeout(r, 2000)),
+        ]);
+
+        stopConnectAnim();
+
+        pickerWrap.style.transition = "opacity 0.45s ease";
+        pickerWrap.style.opacity = "0";
+        await new Promise<void>(r => setTimeout(r, 450));
+
+        if (library?.length) libraryGames = library;
+
+        connectClientWebSocket();
+        navigateTo(renderClientHome);
+    });
+}
+
+function renderClientHome() {
+    const games = libraryGames;
+    const recent = games.slice(0, 8);
+    const collage = [games[0], games[Math.floor(games.length / 2)], games[games.length - 1]].filter(Boolean);
+
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+    <div class="host-wrap">
+      <div class="home-main">
+        <div class="home-bg-layer" id="hbg0"></div>
+        <div class="home-bg-layer" id="hbg1"></div>
+        <div class="home-gradient"></div>
+        <div class="hud-pill hud-left">
+          <div class="wordmark-small">Relay</div>
         </div>
-    `;
+        <div class="hud-right-group">
+          <div class="hud-pill">
+            <span class="code-label">Connected to</span>
+            <span class="code-value">${clientHostCode}</span>
+          </div>
+          <div class="hud-pill hud-settings" id="settingsBtn" data-tooltip="Settings">${SETTINGS_SVG}</div>
+          <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
+        </div>
+        <div class="home-content">
+          <div class="spotlight">
+            <div class="spotlight-inner">
+              <div class="spot-genre" id="spotGenre">${recent[0]?.platform ?? ""}</div>
+              <div class="spot-title" id="spotTitle">${recent[0]?.name ?? ""}</div>
+              <div class="spot-meta">
+                ${recent[0]?.sizeOnDisk ? `<span>${formatBytes(recent[0].sizeOnDisk)}</span>` : ""}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="section-header">
+              <span class="section-label">Library</span>
+            </div>
+            <div class="recent-row" id="recentRow">
+              ${recent.map((g, i) => `
+                <div class="game-item" data-idx="${i}">
+                  <img class="art-portrait" src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.remove()">
+                  <img class="art-landscape" src="${capsuleUrl(g.appId)}" alt="" onerror="this.remove()">
+                  <div class="game-item-overlay"><div class="game-item-name">${g.name}</div></div>
+                </div>`).join("")}
+              <div class="game-item lib-card" id="libCard">
+                <div class="lib-card-collage">
+                  ${collage.map(g => `<img src="${portraitUrl(g.appId)}" alt="">`).join("")}
+                  <div class="lib-card-collage-overlay"></div>
+                </div>
+                <div class="lib-card-body">
+                  <svg class="lib-card-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  <div class="lib-card-title">All Games</div>
+                  <div class="lib-card-sub">${games.length} titles</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    const setHeroBg = makeCrossfader("hbg0", "hbg1");
+    const row = document.getElementById("recentRow")!;
+    const firstCard = row.querySelector<HTMLElement>('[data-idx="0"]')!;
+    let expandedCard: HTMLElement = firstCard;
+    firstCard.classList.add("js-expanded");
+    if (recent[0]) setHeroBg(heroUrl(recent[0].appId));
+
+    row.querySelectorAll<HTMLElement>(".game-item[data-idx]").forEach(card => {
+        const game = recent[parseInt(card.dataset.idx!)];
+        card.addEventListener("mouseenter", () => {
+            if (expandedCard === card) return;
+            expandedCard?.classList.remove("js-expanded");
+            card.classList.add("js-expanded");
+            expandedCard = card;
+            setHeroBg(heroUrl(game.appId));
+            document.getElementById("spotGenre")!.textContent = game.platform;
+            document.getElementById("spotTitle")!.textContent = game.name;
+        });
+        card.addEventListener("click", () => openGameModal(game));
+    });
+
+    const libCard = document.getElementById("libCard")!;
+    libCard.addEventListener("mouseenter", () => expandedCard?.classList.remove("js-expanded"));
+    libCard.addEventListener("click", () => navigateTo(renderClientLibrary));
+    row.addEventListener("mouseleave", () => expandedCard?.classList.add("js-expanded"));
+
+    attachSettingsHandler();
+    attachQuitHandler();
+}
+
+function renderClientLibrary() {
+    const games = libraryGames;
+
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+    <div class="host-wrap">
+      <div class="hud-pill hud-left">
+        <button class="hud-back-btn" data-tooltip="Back">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M9.5 3L4.5 7.5L9.5 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="hud-divider"></div>
+        <div class="wordmark-small">Library</div>
+      </div>
+      <div class="hud-right-group">
+        <div class="hud-pill">
+          <span class="code-label">Connected to</span>
+          <span class="code-value">${clientHostCode}</span>
+        </div>
+        <div class="hud-pill hud-settings" id="settingsBtn" data-tooltip="Settings">${SETTINGS_SVG}</div>
+        <div class="hud-pill hud-quit" id="quitBtn" data-tooltip="Quit Relay">${POWER_SVG}</div>
+      </div>
+      <div class="library-content">
+        <div class="library-filter-row">
+          <span class="library-view-title">All Games</span>
+          <span class="library-game-count">${games.length} titles</span>
+        </div>
+        <div class="library-grid">
+          ${games.map((g, i) => `
+            <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
+              <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.opacity='0'">
+              <div class="library-card-overlay">
+                <div class="library-card-name">${g.name}</div>
+              </div>
+            </div>`).join("")}
+        </div>
+      </div>
+    </div>`;
+
+    document.querySelector<HTMLElement>(".hud-left")!.addEventListener("click", () => navigateTo(renderClientHome));
+    document.querySelectorAll<HTMLElement>(".library-card").forEach(card => {
+        card.addEventListener("click", () => openGameModal(games[parseInt(card.dataset.idx!)]));
+    });
+
+    attachSettingsHandler();
+    attachQuitHandler();
 }
 
 init();

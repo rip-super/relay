@@ -1881,3 +1881,107 @@ body {
     color: rgba(255, 255, 255, 0.14);
     letter-spacing: 0.08em;
 }
+
+.code-input-wrap {
+    width: 100%;
+}
+
+.code-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 22px;
+    font-family: "Outfit", sans-serif;
+    font-weight: 300;
+    letter-spacing: 0.35em;
+    color: var(--accent);
+    text-align: center;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    caret-color: var(--accent);
+}
+
+.code-input:focus {
+    border-color: rgba(79, 142, 247, 0.45);
+    background: rgba(79, 142, 247, 0.06);
+}
+
+.code-input::placeholder {
+    color: rgba(255, 255, 255, 0.15);
+    letter-spacing: 0.3em;
+}
+
+.code-connect-btn {
+    width: 100%;
+    margin-top: 0;
+    padding: 12px;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+}
+
+.code-entry-error {
+    font-size: 12px;
+    color: #e05c5c;
+    text-align: center;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+}
+
+.settings-name-edit {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.settings-name-input {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 13px;
+}
+
+#splash {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    animation: fade-in 0.6s ease both;
+}
+
+.connect-anim-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.connect-anim-wrap.connect-anim-visible {
+    opacity: 1;
+}
+
+.device-revoke-pending {
+    width: auto !important;
+    padding: 0 8px !important;
+    color: #e05c5c !important;
+    border-color: rgba(224, 92, 92, 0.5) !important;
+    background: rgba(224, 92, 92, 0.08) !important;
+}
+
+.revoke-confirm-text {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    text-transform: uppercase;
+}

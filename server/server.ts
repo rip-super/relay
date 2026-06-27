@@ -30,6 +30,7 @@ db.exec(`
         FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE CASCADE
     );
 `);
+try { db.exec("ALTER TABLE hosts ADD COLUMN library TEXT"); } catch { }
 
 const insertHost = db.prepare("INSERT INTO hosts (id, code) VALUES (?, ?)");
 const findByCode = db.prepare("SELECT id FROM hosts WHERE code = ?");
@@ -45,11 +46,14 @@ const renameDevice = db.prepare("UPDATE devices SET display_name = ? WHERE id = 
 const deleteDevice = db.prepare("DELETE FROM devices WHERE id = ?");
 const listDevices = db.prepare("SELECT * FROM devices WHERE host_id = ?");
 const findDevice = db.prepare("SELECT * FROM devices WHERE id = ?");
+const getLibrary = db.prepare("SELECT library FROM hosts WHERE id = ?");
+const setLibrary = db.prepare("UPDATE hosts SET library = ? WHERE id = ?");
 
 const app = new Hono();
 const peers = new Map<string, WSContext>();
 const onlineHosts = new Map<string, WSContext>();
 const activeSessions = new Set<string>();
+const deviceHosts = new Map<string, string>();
 
 app.post("/hosts/register", (c) => {
     const hostId = randomBytes(4).toString("hex");
@@ -81,9 +85,13 @@ app.patch("/devices/:deviceId/name", async (c) => {
     const { deviceId } = c.req.param();
     const { name } = await c.req.json<{ name: string }>();
     if (!name?.trim()) return c.json({ error: "Name required" }, 400);
-    const device = findDevice.get(deviceId);
+    const device = findDevice.get(deviceId) as any;
     if (!device) return c.json({ error: "Not found" }, 404);
     renameDevice.run(name.trim(), deviceId);
+    const hostWs = onlineHosts.get(device.host_id);
+    if (hostWs) hostWs.send(JSON.stringify({ type: "device-renamed", deviceId, name: name.trim() }));
+    const deviceWs = peers.get(deviceId);
+    if (deviceWs) deviceWs.send(JSON.stringify({ type: "name-updated", name: name.trim() }));
     return c.json({ ok: true });
 });
 
@@ -106,8 +114,28 @@ app.post("/hosts/:hostId/regenerate-code", (c) => {
     if (!host) return c.json({ error: "Not found" }, 404);
     const newCode = randomBytes(4).toString("hex").toUpperCase();
     updateCode.run(newCode, hostId);
-    console.log(`[host] ${hostId} regenerated code → ${newCode}`);
+    for (const [clientId, hId] of deviceHosts) {
+        if (hId === hostId) {
+            const ws = peers.get(clientId);
+            if (ws) ws.send(JSON.stringify({ type: "code-changed" }));
+        }
+    }
+    console.log(`[host] ${hostId} regenerated code -> ${newCode}`);
     return c.json({ code: newCode });
+});
+
+app.put("/hosts/:hostId/library", async (c) => {
+    const { hostId } = c.req.param();
+    const { games } = await c.req.json<{ games: unknown }>();
+    setLibrary.run(JSON.stringify(games), hostId);
+    return c.json({ ok: true });
+});
+
+app.get("/hosts/:hostId/library", (c) => {
+    const { hostId } = c.req.param();
+    const row = getLibrary.get(hostId) as { library: string | null } | undefined;
+    if (!row?.library) return c.json([]);
+    return c.json(JSON.parse(row.library));
 });
 
 app.get("/ws", upgradeWebSocket(() => {
@@ -126,14 +154,14 @@ app.get("/ws", upgradeWebSocket(() => {
                 if (msg.role === "host" || findById.get(myId)) {
                     onlineHosts.set(myId, ws);
                 } else if (msg.role === "client" && msg.hostId) {
-                    upsertDevice.run(
-                        myId,
-                        msg.hostId,
-                        msg.displayName ?? "Unknown Device",
-                        new Date().toISOString()
-                    );
+                    deviceHosts.set(myId, msg.hostId);
+                    upsertDevice.run(myId, msg.hostId, msg.displayName ?? "Unknown Device", new Date().toISOString());
+                    const hostWs = onlineHosts.get(msg.hostId);
+                    if (hostWs) {
+                        const device = findDevice.get(myId) as any;
+                        hostWs.send(JSON.stringify({ type: "device-joined", device: { ...device, online: true } }));
+                    }
                 }
-
                 console.log(`[+] ${myId} (${msg.role ?? "unknown"}) connected`);
                 return;
             }
@@ -156,6 +184,12 @@ app.get("/ws", upgradeWebSocket(() => {
 
         onClose() {
             if (myId) {
+                const hostId = deviceHosts.get(myId);
+                if (hostId) {
+                    deviceHosts.delete(myId);
+                    const hostWs = onlineHosts.get(hostId);
+                    if (hostWs) hostWs.send(JSON.stringify({ type: "device-left", deviceId: myId }));
+                }
                 peers.delete(myId);
                 onlineHosts.delete(myId);
                 activeSessions.delete(myId);
