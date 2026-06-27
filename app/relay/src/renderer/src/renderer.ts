@@ -1330,9 +1330,15 @@ function renderHostLibrary() {
 </div>
       <div class="library-content">
         <div class="library-filter-row">
-          <span class="library-view-title">All Games</span>
-          <span class="library-game-count">${games.length} titles</span>
-        </div>
+  <span class="library-view-title">All Games</span>
+  <div class="library-search-wrap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+    </svg>
+    <input class="library-search" id="librarySearch" placeholder="Search games..." autocomplete="off" spellcheck="false" />
+  </div>
+  <span class="library-game-count" id="libraryCount">${games.length} titles</span>
+</div>
         <div class="library-grid">
           ${games.map((g, i) => `
             <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
@@ -1359,6 +1365,31 @@ function renderHostLibrary() {
         btn.classList.remove("hud-rescan-spinning");
         if (changed) renderHostLibrary();
     });
+
+    const searchInput = document.getElementById("librarySearch") as HTMLInputElement;
+    const countEl = document.getElementById("libraryCount")!;
+    const grid = document.querySelector<HTMLElement>(".library-grid")!;
+
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        const cards = grid.querySelectorAll<HTMLElement>(".library-card");
+        let visible = 0;
+        cards.forEach(card => {
+            const idx = parseInt(card.dataset.idx!);
+            const matches = !q || games[idx].name.toLowerCase().includes(q);
+            card.style.display = matches ? "" : "none";
+            if (matches) visible++;
+        });
+        countEl.textContent = q ? `${visible} of ${games.length}` : `${games.length} titles`;
+    });
+
+    const onKey = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    };
+    document.addEventListener("keydown", onKey);
 
     attachSettingsHandler();
 }
@@ -1725,9 +1756,15 @@ function renderClientLibrary() {
       </div>
       <div class="library-content">
         <div class="library-filter-row">
-          <span class="library-view-title">All Games</span>
-          <span class="library-game-count">${games.length} titles</span>
-        </div>
+  <span class="library-view-title">All Games</span>
+  <div class="library-search-wrap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+    </svg>
+    <input class="library-search" id="librarySearch" placeholder="Search games..." autocomplete="off" spellcheck="false" />
+  </div>
+  <span class="library-game-count" id="libraryCount">${games.length} titles</span>
+</div>
         <div class="library-grid">
           ${games.map((g, i) => `
             <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
@@ -1744,6 +1781,31 @@ function renderClientLibrary() {
     document.querySelectorAll<HTMLElement>(".library-card").forEach(card => {
         card.addEventListener("click", () => openGameModal(games[parseInt(card.dataset.idx!)]));
     });
+
+    const searchInput = document.getElementById("librarySearch") as HTMLInputElement;
+    const countEl = document.getElementById("libraryCount")!;
+    const grid = document.querySelector<HTMLElement>(".library-grid")!;
+
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase();
+        const cards = grid.querySelectorAll<HTMLElement>(".library-card");
+        let visible = 0;
+        cards.forEach(card => {
+            const idx = parseInt(card.dataset.idx!);
+            const matches = !q || games[idx].name.toLowerCase().includes(q);
+            card.style.display = matches ? "" : "none";
+            if (matches) visible++;
+        });
+        countEl.textContent = q ? `${visible} of ${games.length}` : `${games.length} titles`;
+    });
+
+    const onKey = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    };
+    document.addEventListener("keydown", onKey);
 
     attachSettingsHandler();
     attachQuitHandler();
