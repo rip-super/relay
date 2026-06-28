@@ -383,7 +383,7 @@ function connectHostWebSocket(hostId: string) {
     if (hostWsInstance?.readyState === WebSocket.OPEN ||
         hostWsInstance?.readyState === WebSocket.CONNECTING) return;
 
-    hostWsInstance = new WebSocket("ws://localhost:6004/ws");
+    hostWsInstance = new WebSocket("wss://relayapi.sahildash.dev/ws");
     hostWsInstance.onopen = () => {
         hostWsInstance!.send(JSON.stringify({ type: "register", id: hostId, role: "host" }));
     };
@@ -429,7 +429,7 @@ function connectClientWebSocket() {
     if (clientWsInstance?.readyState === WebSocket.OPEN ||
         clientWsInstance?.readyState === WebSocket.CONNECTING) return;
 
-    clientWsInstance = new WebSocket("ws://localhost:6004/ws");
+    clientWsInstance = new WebSocket("wss://relayapi.sahildash.dev/ws");
     clientWsInstance.onopen = () => {
         clientWsInstance!.send(JSON.stringify({
             type: "register",

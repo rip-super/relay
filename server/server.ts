@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { serve, upgradeWebSocket } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import type { WSContext } from "hono/ws";
@@ -54,6 +55,8 @@ const peers = new Map<string, WSContext>();
 const onlineHosts = new Map<string, WSContext>();
 const activeSessions = new Set<string>();
 const deviceHosts = new Map<string, string>();
+
+app.use("*", cors());
 
 app.post("/hosts/register", (c) => {
     const hostId = randomBytes(4).toString("hex");

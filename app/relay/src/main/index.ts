@@ -155,7 +155,7 @@ ipcMain.handle("get-host-config", () => {
 });
 
 ipcMain.handle("register-host", async () => {
-    const res = await fetch("http://localhost:6004/hosts/register", { method: "POST" });
+    const res = await fetch("https://relayapi.sahildash.dev/hosts/register", { method: "POST" });
     const data = await res.json() as { hostId: string; code: string };
     const config = getConfig() ?? { mode: "host" as const };
     writeFileSync(configPath, JSON.stringify({ ...config, ...data }));
@@ -173,7 +173,7 @@ ipcMain.handle("save-games", async (_, games: unknown) => {
     const config = (getConfig() as any) ?? { mode: "host" };
     writeFileSync(configPath, JSON.stringify({ ...config, games }));
     if (config.hostId) {
-        fetch(`http://localhost:6004/hosts/${config.hostId}/library`, {
+        fetch(`https://relayapi.sahildash.dev/hosts/${config.hostId}/library`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ games }),
@@ -184,7 +184,7 @@ ipcMain.handle("save-games", async (_, games: unknown) => {
 ipcMain.handle("push-library", async () => {
     const config = getConfig() as any;
     if (!config?.hostId || !config?.games) return;
-    await fetch(`http://localhost:6004/hosts/${config.hostId}/library`, {
+    await fetch(`https://relayapi.sahildash.dev/hosts/${config.hostId}/library`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ games: config.games }),
@@ -192,13 +192,13 @@ ipcMain.handle("push-library", async () => {
 });
 
 ipcMain.handle("get-host-library", async (_, hostId: string) => {
-    const res = await fetch(`http://localhost:6004/hosts/${hostId}/library`);
+    const res = await fetch(`https://relayapi.sahildash.dev/hosts/${hostId}/library`);
     if (!res.ok) return null;
     return res.json();
 });
 
 ipcMain.handle("validate-code", async (_, code: string) => {
-    const res = await fetch("http://localhost:6004/codes/validate", {
+    const res = await fetch("https://relayapi.sahildash.dev/codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
@@ -235,12 +235,12 @@ ipcMain.handle("quit-app", () => app.quit());
 ipcMain.handle("get-devices", async () => {
     const config = getConfig() as any;
     if (!config?.hostId) return [];
-    const res = await fetch(`http://localhost:6004/hosts/${config.hostId}/devices`);
+    const res = await fetch(`https://relayapi.sahildash.dev/hosts/${config.hostId}/devices`);
     return res.json();
 });
 
 ipcMain.handle("rename-device", async (_, deviceId: string, name: string) => {
-    const res = await fetch(`http://localhost:6004/devices/${deviceId}/name`, {
+    const res = await fetch(`https://relayapi.sahildash.dev/devices/${deviceId}/name`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -249,14 +249,14 @@ ipcMain.handle("rename-device", async (_, deviceId: string, name: string) => {
 });
 
 ipcMain.handle("revoke-device", async (_, deviceId: string) => {
-    const res = await fetch(`http://localhost:6004/devices/${deviceId}`, { method: "DELETE" });
+    const res = await fetch(`https://relayapi.sahildash.dev/devices/${deviceId}`, { method: "DELETE" });
     return res.json();
 });
 
 ipcMain.handle("regenerate-code", async () => {
     const config = getConfig() as any;
     if (!config?.hostId) return null;
-    const res = await fetch(`http://localhost:6004/hosts/${config.hostId}/regenerate-code`, { method: "POST" });
+    const res = await fetch(`https://relayapi.sahildash.dev/hosts/${config.hostId}/regenerate-code`, { method: "POST" });
     const data = await res.json() as { code: string };
     writeFileSync(configPath, JSON.stringify({ ...config, code: data.code }));
     return data.code;
