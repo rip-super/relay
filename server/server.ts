@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 import Database from "better-sqlite3";
 
 type SignalMessage = {
-    type: "register" | "connect-request" | "offer" | "answer" | "ice-candidate";
+    type: "register" | "connect-request" | "offer" | "answer" | "ice-candidate" | "stream-ended";
     id?: string;
     target?: string;
     payload?: unknown;
@@ -174,6 +174,13 @@ app.get("/ws", upgradeWebSocket(() => {
                 activeSessions.add(msg.target!);
             }
 
+            if (msg.type === "stream-ended") {
+                activeSessions.delete(msg.target!);
+                const target = peers.get(msg.target!);
+                if (target) target.send(JSON.stringify({ type: "stream-ended", from: myId }));
+                return;
+            }
+
             const target = peers.get(msg.target!);
             if (target) {
                 target.send(JSON.stringify({ type: msg.type, from: myId, payload: msg.payload }));
@@ -187,15 +194,13 @@ app.get("/ws", upgradeWebSocket(() => {
                 const hostId = deviceHosts.get(myId);
                 if (hostId) {
                     deviceHosts.delete(myId);
+                    activeSessions.delete(hostId);
                     const hostWs = onlineHosts.get(hostId);
                     if (hostWs) hostWs.send(JSON.stringify({ type: "device-left", deviceId: myId }));
                 }
                 peers.delete(myId);
                 onlineHosts.delete(myId);
                 activeSessions.delete(myId);
-                for (const [hostId] of onlineHosts) {
-                    if (myWs && peers.get(hostId) === myWs) activeSessions.delete(hostId);
-                }
                 console.log(`[-] ${myId} disconnected`);
             }
         },

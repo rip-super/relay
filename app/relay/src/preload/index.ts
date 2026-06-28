@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from "electron";
 if (process.contextIsolated) {
     try {
         contextBridge.exposeInMainWorld("relay", {
+            platform: process.platform,
             getMode: () => ipcRenderer.invoke("get-mode"),
             setMode: (mode: "host" | "client") => ipcRenderer.invoke("set-mode", mode),
             getHostConfig: () => ipcRenderer.invoke("get-host-config"),
@@ -25,12 +26,14 @@ if (process.contextIsolated) {
             saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
             getHostname: () => ipcRenderer.invoke("get-hostname"),
             launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
+            getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
         });
     } catch (error) {
         console.error(error);
     }
 } else {
     (window as any).relay = {
+        platform: process.platform,
         getMode: () => ipcRenderer.invoke("get-mode"),
         setMode: (mode: "host" | "client") => ipcRenderer.invoke("set-mode", mode),
         getHostConfig: () => ipcRenderer.invoke("get-host-config"),
@@ -53,5 +56,6 @@ if (process.contextIsolated) {
         saveClientConfig: (d: object) => ipcRenderer.invoke("save-client-config", d),
         getHostname: () => ipcRenderer.invoke("get-hostname"),
         launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
+        getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
     };
 }

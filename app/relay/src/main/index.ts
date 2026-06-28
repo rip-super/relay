@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from "electron";
+import { app, shell, BrowserWindow, ipcMain, desktopCapturer } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -292,8 +292,19 @@ ipcMain.handle("launch-game", async (_, game: { appId: string; source: string; i
     }
 });
 
+ipcMain.handle("get-desktop-sources", async () => {
+    const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: { width: 1, height: 1 },
+        fetchWindowIcons: false
+    });
+    return sources.map(s => ({ id: s.id, name: s.name }));
+});
+
+let mainWindow: BrowserWindow | null = null;
+
 function createWindow(): void {
-    const mainWindow = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
         show: false,
@@ -302,10 +313,11 @@ function createWindow(): void {
         webPreferences: {
             preload: join(__dirname, "../preload/index.js"),
             sandbox: false,
+            backgroundThrottling: false,
         },
     });
 
-    mainWindow.on("ready-to-show", () => mainWindow.show());
+    mainWindow.on("ready-to-show", () => mainWindow!.show());
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url);

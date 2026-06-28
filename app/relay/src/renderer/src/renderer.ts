@@ -78,6 +78,32 @@ let clientDisplayName = "";
 let hostWsInstance: WebSocket | null = null;
 let clientWsInstance: WebSocket | null = null;
 
+let hostPeerConnection: RTCPeerConnection | null = null;
+let clientPeerConnection: RTCPeerConnection | null = null;
+let activeStreamOverlay: HTMLElement | null = null;
+
+const RTC_CONFIG: RTCConfiguration = {
+    iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+        },
+        {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+        },
+        {
+            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+        },
+    ],
+};
+
 type DeviceEvent =
     | { type: "device-joined"; device: { id: string; display_name: string; last_seen: string; online: boolean } }
     | { type: "device-left"; deviceId: string }
@@ -335,7 +361,7 @@ function activateBg(index: number) {
 }
 
 function deactivateBg(index: number) {
-    document.getElementById(`bg${index}`)!.classList.remove("active");
+    document.getElementById(`bg${index}`)?.classList.remove("active");
 }
 
 function formatBytes(bytes: number): string {
@@ -361,10 +387,39 @@ function connectHostWebSocket(hostId: string) {
     hostWsInstance.onopen = () => {
         hostWsInstance!.send(JSON.stringify({ type: "register", id: hostId, role: "host" }));
     };
-    hostWsInstance.onmessage = (event) => {
-        const msg = JSON.parse(event.data as string) as DeviceEvent;
+    hostWsInstance.onmessage = async (event) => {
+        const msg = JSON.parse(event.data as string);
+
         if (msg.type === "device-joined" || msg.type === "device-left" || msg.type === "device-renamed") {
-            onDeviceEvent?.(msg);
+            onDeviceEvent?.(msg as DeviceEvent);
+            return;
+        }
+
+        if (msg.type === "connect-request") {
+            await startHostStreaming(msg.from);
+            return;
+        }
+
+        if (msg.type === "answer" && hostPeerConnection) {
+            console.log("[relay] received answer from client");
+            await hostPeerConnection.setRemoteDescription(new RTCSessionDescription(msg.payload));
+            return;
+        }
+
+        if (msg.type === "ice-candidate" && hostPeerConnection && msg.payload) {
+            await hostPeerConnection.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(console.error);
+            return;
+        }
+
+        if (msg.type === "stream-ended") {
+            hostPeerConnection?.close();
+            hostPeerConnection = null;
+            if ((window as any).__stopNativeCapture) {
+                (window as any).__stopNativeCapture();
+                (window as any).__stopNativeCapture = null;
+            }
+            console.log("[relay] stream ended by client");
+            return;
         }
     };
     hostWsInstance.onclose = () => setTimeout(() => connectHostWebSocket(hostId), 3000);
@@ -384,7 +439,7 @@ function connectClientWebSocket() {
             displayName: clientDisplayName,
         }));
     };
-    clientWsInstance.onmessage = (event) => {
+    clientWsInstance.onmessage = async (event) => {
         const msg = JSON.parse(event.data as string);
 
         function closeSettingsIfOpen() {
@@ -417,11 +472,161 @@ function connectClientWebSocket() {
             });
             const nameInput = document.getElementById("deviceNameInput") as HTMLInputElement | null;
             if (nameInput) nameInput.value = msg.name;
+        } else if (msg.type === "offer") {
+            await handleClientOffer(msg.from, msg.payload);
+            return;
+        }
+
+        else if (msg.type === "ice-candidate" && clientPeerConnection && msg.payload) {
+            await clientPeerConnection.addIceCandidate(new RTCIceCandidate(msg.payload)).catch(console.error);
+            return;
+        }
+
+        else if (msg.type === "session-busy") {
+            const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+        </svg> Play`;
+            }
+            alert("Host is already streaming to another device.");
+            return;
+        }
+
+        else if (msg.type === "stream-ended") {
+            closeStreamOverlay();
+            return;
         }
     };
     clientWsInstance.onclose = () => {
         if (clientHostId) setTimeout(connectClientWebSocket, 3000);
     };
+}
+
+async function startHostStreaming(toClientId: string) {
+    console.log("[relay] starting stream to", toClientId);
+    hostPeerConnection?.close();
+
+    try {
+        let stream: MediaStream;
+
+        const sources = await relay.getDesktopSources() as Array<{ id: string; name: string }>;
+        const screen = sources.find(s => s.id.startsWith("screen:")) ?? sources[0];
+        if (!screen) { console.error("[relay] no screen source"); return; }
+
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                mandatory: {
+                    chromeMediaSource: "desktop",
+                    chromeMediaSourceId: screen.id,
+                    maxWidth: 1920,
+                    maxHeight: 1080,
+                    maxFrameRate: 30,
+                },
+            } as any,
+        });
+
+        hostPeerConnection = new RTCPeerConnection(RTC_CONFIG);
+        stream.getTracks().forEach(t => hostPeerConnection!.addTrack(t, stream));
+
+        hostPeerConnection.onicecandidate = (e) => {
+            if (e.candidate && hostWsInstance?.readyState === WebSocket.OPEN) {
+                hostWsInstance.send(JSON.stringify({
+                    type: "ice-candidate", target: toClientId, payload: e.candidate,
+                }));
+            }
+        };
+
+        const offer = await hostPeerConnection.createOffer();
+        await hostPeerConnection.setLocalDescription(offer);
+        hostWsInstance?.send(JSON.stringify({ type: "offer", target: toClientId, payload: offer }));
+
+        console.log("[relay] offer sent to", toClientId);
+    } catch (err) {
+        console.error("[relay] host stream failed:", err);
+    }
+}
+
+async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptionInit) {
+    console.log("[relay] received offer, creating answer");
+    clientPeerConnection?.close();
+    clientPeerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+    clientPeerConnection.oniceconnectionstatechange = () => {
+        console.log("[relay] client ICE connection state:", clientPeerConnection?.iceConnectionState);
+    };
+
+    clientPeerConnection.ontrack = (e) => {
+        console.log("[relay] stream track received. Track enabled:", e.track.enabled, "Track muted:", e.track.muted);
+        showStreamOverlay(e.streams[0], fromHostId);
+    };
+
+    clientPeerConnection.onicecandidate = (e) => {
+        console.log("[relay] client generated ICE candidate:", e.candidate?.candidate);
+        if (e.candidate && clientWsInstance?.readyState === WebSocket.OPEN) {
+            clientWsInstance.send(JSON.stringify({
+                type: "ice-candidate", target: clientHostId, payload: e.candidate,
+            }));
+        }
+    };
+
+    await clientPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await clientPeerConnection.createAnswer();
+    await clientPeerConnection.setLocalDescription(answer);
+
+    clientWsInstance?.send(JSON.stringify({
+        type: "answer", target: clientHostId, payload: answer,
+    }));
+
+    console.log("[relay] answer sent");
+}
+
+function showStreamOverlay(stream: MediaStream, hostId: string) {
+    closeStreamOverlay();
+
+    const overlay = document.createElement("div");
+    overlay.id = "streamOverlay";
+    overlay.innerHTML = `
+        <video id="streamVideo" autoplay playsinline muted style="width: 100vw; height: 100vh; object-fit: contain; background: #000;"></video>
+        <div class="stream-hud">
+            <button class="stream-stop-btn" id="streamStopBtn">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                    <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                Stop streaming
+            </button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    activeStreamOverlay = overlay;
+
+    const video = document.getElementById("streamVideo") as HTMLVideoElement;
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+        console.log("[relay] video metadata loaded, attempting play...");
+        video.play().then(() => {
+            console.log("[relay] video is playing!");
+        }).catch(e => console.error("[relay] video play failed:", e));
+    };
+
+    const stop = () => {
+        clientWsInstance?.send(JSON.stringify({
+            type: "stream-ended", target: hostId, payload: null,
+        }));
+        closeStreamOverlay();
+        clientPeerConnection?.close();
+        clientPeerConnection = null;
+    };
+
+    document.getElementById("streamStopBtn")!.addEventListener("click", stop);
+}
+
+function closeStreamOverlay() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
+    activeStreamOverlay?.remove();
+    activeStreamOverlay = null;
 }
 
 function attachDeviceRowHandlers(row: HTMLElement) {
@@ -1482,17 +1687,33 @@ function openGameModal(g: LibraryGame) {
 
     if (currentMode === "client") {
         document.getElementById("playBtn")?.addEventListener("click", async () => {
-            // TODO: initiate WebRTC stream session with host for game: g.appId
             const btn = document.getElementById("playBtn") as HTMLButtonElement;
             btn.disabled = true;
             btn.textContent = "Launching...";
+
             await relay.launchGame(g);
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            btn.textContent = "Waiting for game...";
+            await new Promise(r => setTimeout(r, 6000));
+            btn.textContent = "Connecting stream...";
+
+            clientWsInstance?.send(JSON.stringify({
+                type: "connect-request",
+                target: clientHostId,
+                payload: { appId: g.appId, name: g.name },
+            }));
+
+            const timeout = setTimeout(() => {
+                if (!activeStreamOverlay) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
             </svg> Play`;
-            }, 4000);
+                }
+            }, 30000);
+
+            const checkConnected = setInterval(() => {
+                if (activeStreamOverlay) { clearTimeout(timeout); clearInterval(checkConnected); }
+            }, 500);
         });
     }
 
