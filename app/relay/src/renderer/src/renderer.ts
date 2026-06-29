@@ -1149,7 +1149,9 @@ function attachScanHandler() {
         await new Promise<void>(r => setTimeout(r, 350));
         stopAnim();
 
-        libraryGames = games.map(g => ({
+        libraryGames = games.filter(g =>
+            !g.name.toLowerCase().includes("steamworks common redistributables")
+        ).map(g => ({
             lastPlayed: "N/A",
             platform: "Steam",
             installDir: "",
@@ -1183,7 +1185,9 @@ async function rescanLibrary(): Promise<boolean> {
         libraryGames.some(g => !freshIds.has(g.appId));
 
     if (changed) {
-        libraryGames = fresh.map(g => ({
+        libraryGames = fresh.filter(g =>
+            !g.name.toLowerCase().includes("steamworks common redistributables")
+        ).map(g => ({
             lastPlayed: "N/A",
             platform: "Steam",
             installDir: "",
@@ -1210,7 +1214,9 @@ async function init() {
     currentMode = (mode as "host" | "client" | null);
 
     if (mode === "host" && savedGames?.length) {
-        libraryGames = (savedGames as any[]).map(g => ({
+        libraryGames = (savedGames as any[]).filter(g =>
+            !g.name.toLowerCase().includes("steamworks common redistributables")
+        ).map(g => ({
             lastPlayed: "N/A",
             platform: "Steam",
             installDir: "",
@@ -1463,7 +1469,7 @@ async function renderHost() {
 
 function renderHostHome() {
     const games = libraryGames;
-    const recent = games.slice(0, 8);
+    const recent = games.slice(0, 5);
     const collage = [
         games[0],
         games[Math.floor(games.length / 2)],
@@ -1895,7 +1901,7 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
         ${POLE_SVG}
         <canvas id="connectCanvas"></canvas>
     </div>
-    <div class="scan-anim-label">Connecting to library...</div>
+    <div class="scan-anim-label" style="color: #ffffff;">Connecting to library...</div>
 `;
         pickerWrap.appendChild(animEl);
         requestAnimationFrame(() => requestAnimationFrame(() => animEl.classList.add("connect-anim-visible")));
@@ -1936,7 +1942,7 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
 
 function renderClientHome() {
     const games = libraryGames;
-    const recent = games.slice(0, 8);
+    const recent = games.slice(0, 5);
     const collage = [games[0], games[Math.floor(games.length / 2)], games[games.length - 1]].filter(Boolean);
 
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
