@@ -396,7 +396,13 @@ function connectHostWebSocket(hostId: string) {
         }
 
         if (msg.type === "connect-request") {
-            await startHostStreaming(msg.from);
+            console.log("[relay] received connect-request, launching game on host...");
+
+            await relay.launchGame(msg.payload);
+
+            await new Promise(r => setTimeout(r, 6000));
+
+            await startHostStreaming(msg.from, msg.payload);
             return;
         }
 
@@ -504,7 +510,7 @@ function connectClientWebSocket() {
     };
 }
 
-async function startHostStreaming(toClientId: string) {
+async function startHostStreaming(toClientId: string, payload: any) {
     console.log("[relay] starting stream to", toClientId);
     hostPeerConnection?.close();
 
@@ -512,15 +518,26 @@ async function startHostStreaming(toClientId: string) {
         let stream: MediaStream;
 
         const sources = await relay.getDesktopSources() as Array<{ id: string; name: string }>;
-        const screen = sources.find(s => s.id.startsWith("screen:")) ?? sources[0];
-        if (!screen) { console.error("[relay] no screen source"); return; }
+
+        let targetSource = sources.find(s =>
+            payload?.name && s.name.toLowerCase().includes(payload.name.toLowerCase())
+        );
+
+        if (!targetSource) {
+            console.log("[relay] Game window not found, falling back to screen");
+            targetSource = sources.find(s => s.id.startsWith("screen:")) ?? sources[0];
+        } else {
+            console.log("[relay] Found game window:", targetSource.name);
+        }
+
+        if (!targetSource) { console.error("[relay] no capture source"); return; }
 
         stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: {
                 mandatory: {
                     chromeMediaSource: "desktop",
-                    chromeMediaSourceId: screen.id,
+                    chromeMediaSourceId: targetSource.id,
                     maxWidth: 1920,
                     maxHeight: 1080,
                     maxFrameRate: 30,
@@ -1689,17 +1706,12 @@ function openGameModal(g: LibraryGame) {
         document.getElementById("playBtn")?.addEventListener("click", async () => {
             const btn = document.getElementById("playBtn") as HTMLButtonElement;
             btn.disabled = true;
-            btn.textContent = "Launching...";
-
-            await relay.launchGame(g);
-            btn.textContent = "Waiting for game...";
-            await new Promise(r => setTimeout(r, 6000));
-            btn.textContent = "Connecting stream...";
+            btn.textContent = "Connecting to host...";
 
             clientWsInstance?.send(JSON.stringify({
                 type: "connect-request",
                 target: clientHostId,
-                payload: { appId: g.appId, name: g.name },
+                payload: g,
             }));
 
             const timeout = setTimeout(() => {
