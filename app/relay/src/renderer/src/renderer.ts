@@ -605,9 +605,18 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
 
     const overlay = document.createElement("div");
     overlay.id = "streamOverlay";
+
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.backgroundColor = "#000";
+    overlay.style.zIndex = "99999";
+
     overlay.innerHTML = `
-        <video id="streamVideo" autoplay playsinline muted style="width: 100vw; height: 100vh; object-fit: contain; background: #000;"></video>
-        <div class="stream-hud">
+        <video id="streamVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
+        <div class="stream-hud" style="position: absolute; top: 20px; right: 20px;">
             <button class="stream-stop-btn" id="streamStopBtn">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                     <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -635,6 +644,14 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
         closeStreamOverlay();
         clientPeerConnection?.close();
         clientPeerConnection = null;
+
+        const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
+        if (playBtn) {
+            playBtn.disabled = false;
+            playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+            </svg> Play`;
+        }
     };
 
     document.getElementById("streamStopBtn")!.addEventListener("click", stop);
