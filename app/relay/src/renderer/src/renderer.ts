@@ -546,7 +546,17 @@ async function startHostStreaming(toClientId: string, payload: any) {
         });
 
         hostPeerConnection = new RTCPeerConnection(RTC_CONFIG);
-        stream.getTracks().forEach(t => hostPeerConnection!.addTrack(t, stream));
+        stream.getTracks().forEach(t => {
+            const sender = hostPeerConnection!.addTrack(t, stream);
+
+            const params = sender.getParameters();
+            if (!params.encodings) {
+                params.encodings = [{}];
+            }
+            params.encodings[0].maxBitrate = 8000000;
+            params.encodings[0].scaleResolutionDownBy = 1.0;
+            sender.setParameters(params);
+        });
 
         hostPeerConnection.onicecandidate = (e) => {
             if (e.candidate && hostWsInstance?.readyState === WebSocket.OPEN) {
