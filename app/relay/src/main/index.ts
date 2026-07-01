@@ -1,9 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session } from "electron";
+import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session, screen } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { homedir, hostname } from "os";
 import { spawn } from "child_process";
+import { mouse, keyboard, Button, Key, Point } from "@nut-tree-fork/nut-js";
+
+mouse.config.mouseSpeed = 0;
+keyboard.config.autoDelayMs = 0;
 
 // todo: epicgames, gog, etc.
 interface ScannedGame {
@@ -144,6 +148,20 @@ function scanSteamGames(): ScannedGame[] {
     return games.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function mapKey(code: string): Key | undefined {
+    if (code.startsWith("Key")) return Key[code.charAt(3) as keyof typeof Key];
+    if (code.startsWith("Digit")) return Key[code.charAt(5) as keyof typeof Key];
+
+    const map: Record<string, Key> = {
+        "Enter": Key.Enter, "Space": Key.Space, "Backspace": Key.Backspace,
+        "Tab": Key.Tab, "Escape": Key.Escape, "ShiftLeft": Key.LeftShift,
+        "ShiftRight": Key.RightShift, "ControlLeft": Key.LeftControl,
+        "ControlRight": Key.RightControl, "AltLeft": Key.LeftAlt,
+        "AltRight": Key.RightAlt, "MetaLeft": Key.LeftSuper, "MetaRight": Key.RightSuper,
+        "ArrowUp": Key.Up, "ArrowDown": Key.Down, "ArrowLeft": Key.Left, "ArrowRight": Key.Right,
+    };
+    return map[code];
+}
 
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
@@ -299,6 +317,29 @@ ipcMain.handle("get-desktop-sources", async () => {
         fetchWindowIcons: false
     });
     return sources.map(s => ({ id: s.id, name: s.name }));
+});
+
+ipcMain.handle("simulate-input", async (_, event) => {
+    try {
+        if (event.type === "mousemove") {
+            const display = screen.getPrimaryDisplay();
+            const x = Math.round(event.x * display.size.width);
+            const y = Math.round(event.y * display.size.height);
+            await mouse.setPosition(new Point(x, y));
+        } else if (event.type === "mousedown") {
+            await mouse.pressButton(Button[event.button as keyof typeof Button]);
+        } else if (event.type === "mouseup") {
+            await mouse.releaseButton(Button[event.button as keyof typeof Button]);
+        } else if (event.type === "keydown") {
+            const key = mapKey(event.key);
+            if (key) await keyboard.pressKey(key);
+        } else if (event.type === "keyup") {
+            const key = mapKey(event.key);
+            if (key) await keyboard.releaseKey(key);
+        }
+    } catch (e) {
+        console.error("[relay] input simulation failed:", e);
+    }
 });
 
 let mainWindow: BrowserWindow | null = null;

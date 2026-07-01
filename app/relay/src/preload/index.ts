@@ -27,6 +27,7 @@ if (process.contextIsolated) {
             getHostname: () => ipcRenderer.invoke("get-hostname"),
             launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
             getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
+            simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
         });
     } catch (error) {
         console.error(error);
@@ -57,5 +58,6 @@ if (process.contextIsolated) {
         getHostname: () => ipcRenderer.invoke("get-hostname"),
         launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
         getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
+        simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
     };
 }

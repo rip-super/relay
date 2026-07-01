@@ -82,6 +82,8 @@ let hostPeerConnection: RTCPeerConnection | null = null;
 let clientPeerConnection: RTCPeerConnection | null = null;
 let activeStreamOverlay: HTMLElement | null = null;
 
+let inputChannel: RTCDataChannel | null = null;
+
 const RTC_CONFIG: RTCConfiguration = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -561,6 +563,15 @@ async function startHostStreaming(toClientId: string, payload: any) {
         }
 
         hostPeerConnection = new RTCPeerConnection(RTC_CONFIG);
+
+        const inputChannel = hostPeerConnection.createDataChannel("relay-inputs");
+
+        inputChannel.onopen = () => console.log("[relay] Input channel opened");
+        inputChannel.onmessage = async (event) => {
+            const inputEvent = JSON.parse(event.data);
+            await relay.simulateInput(inputEvent);
+        };
+
         stream.getTracks().forEach(t => {
             const sender = hostPeerConnection!.addTrack(t, stream);
 
@@ -614,6 +625,13 @@ async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptio
         }
     };
 
+    clientPeerConnection.ondatachannel = (event) => {
+        if (event.channel.label === "relay-inputs") {
+            inputChannel = event.channel;
+            console.log("[relay] Input channel received");
+        }
+    };
+
     await clientPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await clientPeerConnection.createAnswer();
     await clientPeerConnection.setLocalDescription(answer);
@@ -657,10 +675,36 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     video.srcObject = stream;
     video.onloadedmetadata = () => {
         console.log("[relay] video metadata loaded, attempting play...");
-        video.play().then(() => {
-            console.log("[relay] video is playing!");
-        }).catch(e => console.error("[relay] video play failed:", e));
+        video.play().then(() => console.log("[relay] video is playing!")).catch(e => console.error("[relay] video play failed:", e));
     };
+
+    const sendInput = (e: Event) => {
+        if (!inputChannel || inputChannel.readyState !== "open") return;
+
+        let payload: any = { type: e.type };
+
+        if (e instanceof MouseEvent) {
+            const rect = video.getBoundingClientRect();
+            payload.x = (e.clientX - rect.left) / rect.width;
+            payload.y = (e.clientY - rect.top) / rect.height;
+
+            if (e.type === "mousedown" || e.type === "mouseup") {
+                payload.button = e.button === 0 ? "LEFT" : e.button === 2 ? "RIGHT" : "MIDDLE";
+            }
+        } else if (e instanceof KeyboardEvent) {
+            payload.key = e.code;
+        }
+
+        inputChannel.send(JSON.stringify(payload));
+    };
+
+    video.addEventListener("mousemove", sendInput);
+    video.addEventListener("mousedown", sendInput);
+    video.addEventListener("mouseup", sendInput);
+    video.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    window.addEventListener("keydown", sendInput);
+    window.addEventListener("keyup", sendInput);
 
     const stop = () => {
         clientWsInstance?.send(JSON.stringify({
