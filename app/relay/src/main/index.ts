@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, desktopCapturer } from "electron";
+import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -331,8 +331,20 @@ function createWindow(): void {
     }
 }
 
+app.commandLine.appendSwitch("enable-features", "MacLoopbackAudioForScreenShare");
+
 app.whenReady().then(() => {
     electronApp.setAppUserModelId("com.relay");
+
+    session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+        desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1, height: 1 } }).then((sources) => {
+            if (sources.length > 0) {
+                callback({ video: sources[0], audio: "loopback" });
+            } else {
+                callback({});
+            }
+        });
+    });
 
     app.on("browser-window-created", (_, window) => {
         optimizer.watchWindowShortcuts(window);

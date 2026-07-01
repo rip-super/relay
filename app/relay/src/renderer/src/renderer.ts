@@ -517,33 +517,48 @@ async function startHostStreaming(toClientId: string, payload: any) {
     try {
         let stream: MediaStream;
 
-        const sources = await relay.getDesktopSources() as Array<{ id: string; name: string }>;
-
-        let targetSource = sources.find(s =>
-            payload?.name && s.name.toLowerCase().includes(payload.name.toLowerCase())
-        );
-
-        if (!targetSource) {
-            console.log("[relay] Game window not found, falling back to screen");
-            targetSource = sources.find(s => s.id.startsWith("screen:")) ?? sources[0];
-        } else {
-            console.log("[relay] Found game window:", targetSource.name);
-        }
-
-        if (!targetSource) { console.error("[relay] no capture source"); return; }
-
-        stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-                mandatory: {
-                    chromeMediaSource: "desktop",
-                    chromeMediaSourceId: targetSource.id,
-                    maxWidth: 1920,
-                    maxHeight: 1080,
-                    maxFrameRate: 30,
+        if (relay.platform === "darwin") {
+            console.log("[relay] using getDisplayMedia for macOS audio + video");
+            stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    frameRate: { max: 30 }
                 },
-            } as any,
-        });
+                audio: true
+            });
+        } else {
+            console.log("[relay] using desktopCapturer for Windows");
+            const sources = await relay.getDesktopSources() as Array<{ id: string; name: string }>;
+
+            let targetSource = sources.find(s =>
+                payload?.name && s.name.toLowerCase().includes(payload.name.toLowerCase())
+            );
+
+            if (!targetSource) {
+                console.log("[relay] Game window not found, falling back to screen");
+                targetSource = sources.find(s => s.id.startsWith("screen:")) ?? sources[0];
+            } else {
+                console.log("[relay] Found game window:", targetSource.name);
+            }
+
+            if (!targetSource) { console.error("[relay] no capture source"); return; }
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    mandatory: {
+                        chromeMediaSource: "desktop"
+                    }
+                } as any,
+                video: {
+                    mandatory: {
+                        chromeMediaSource: "desktop",
+                        chromeMediaSourceId: targetSource.id,
+                        maxWidth: 1920,
+                        maxHeight: 1080,
+                        maxFrameRate: 30,
+                    },
+                } as any,
+            });
+        }
 
         hostPeerConnection = new RTCPeerConnection(RTC_CONFIG);
         stream.getTracks().forEach(t => {
@@ -625,7 +640,7 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     overlay.style.zIndex = "99999";
 
     overlay.innerHTML = `
-        <video id="streamVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
+        <video id="streamVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
         <div class="stream-hud" style="position: absolute; top: 20px; right: 20px;">
             <button class="stream-stop-btn" id="streamStopBtn">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
