@@ -84,6 +84,8 @@ let activeStreamOverlay: HTMLElement | null = null;
 
 let inputChannel: RTCDataChannel | null = null;
 
+let gameWatcher: NodeJS.Timeout | null = null;
+
 const RTC_CONFIG: RTCConfiguration = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -398,13 +400,43 @@ function connectHostWebSocket(hostId: string) {
         }
 
         if (msg.type === "connect-request") {
-            console.log("[relay] received connect-request, launching game on host...");
+            console.log("[relay] received connect-request, checking game status on host...");
 
-            await relay.launchGame(msg.payload);
+            const isRunning = await relay.isGameRunning(msg.payload);
 
-            await new Promise(r => setTimeout(r, 6000));
+            if (!isRunning) {
+                console.log("[relay] Game not running, launching...");
+                await relay.launchGame(msg.payload);
+                await new Promise(r => setTimeout(r, 6000));
+            } else {
+                console.log("[relay] Game already running, starting stream immediately.");
+            }
 
             await startHostStreaming(msg.from, msg.payload);
+
+            if (gameWatcher) clearInterval(gameWatcher);
+            const watcher = setInterval(async () => {
+                const stillRunning = await relay.isGameRunning(msg.payload);
+                if (!stillRunning) {
+                    console.log("[relay] Game closed by host, ending stream.");
+                    clearInterval(watcher);
+                    gameWatcher = null;
+
+                    hostPeerConnection?.close();
+                    hostPeerConnection = null;
+                    if ((window as any).__stopNativeCapture) {
+                        (window as any).__stopNativeCapture();
+                        (window as any).__stopNativeCapture = null;
+                    }
+
+                    hostWsInstance?.send(JSON.stringify({
+                        type: "stream-ended", target: msg.from, payload: null
+                    }));
+                }
+            }, 3000);
+
+            gameWatcher = watcher;
+
             return;
         }
 
@@ -420,6 +452,10 @@ function connectHostWebSocket(hostId: string) {
         }
 
         if (msg.type === "stream-ended") {
+            if (gameWatcher) {
+                clearInterval(gameWatcher);
+                gameWatcher = null;
+            }
             hostPeerConnection?.close();
             hostPeerConnection = null;
             if ((window as any).__stopNativeCapture) {
@@ -525,7 +561,11 @@ async function startHostStreaming(toClientId: string, payload: any) {
                 video: {
                     frameRate: { max: 30 }
                 },
-                audio: true
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
             });
         } else {
             console.log("[relay] using desktopCapturer for Windows");
@@ -547,7 +587,10 @@ async function startHostStreaming(toClientId: string, payload: any) {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     mandatory: {
-                        chromeMediaSource: "desktop"
+                        chromeMediaSource: "desktop",
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
                     }
                 } as any,
                 video: {
@@ -564,7 +607,10 @@ async function startHostStreaming(toClientId: string, payload: any) {
 
         hostPeerConnection = new RTCPeerConnection(RTC_CONFIG);
 
-        const inputChannel = hostPeerConnection.createDataChannel("relay-inputs");
+        const inputChannel = hostPeerConnection.createDataChannel("relay-inputs", {
+            ordered: false,
+            maxRetransmits: 0
+        });
 
         inputChannel.onopen = () => console.log("[relay] Input channel opened");
         inputChannel.onmessage = async (event) => {
@@ -658,7 +704,7 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     overlay.style.zIndex = "99999";
 
     overlay.innerHTML = `
-        <video id="streamVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
+        <video id="streamVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000; cursor: none;"></video>
         <div class="stream-hud" style="position: absolute; top: 20px; right: 20px;">
             <button class="stream-stop-btn" id="streamStopBtn">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
@@ -671,6 +717,8 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     document.body.appendChild(overlay);
     activeStreamOverlay = overlay;
 
+    overlay.requestFullscreen?.().catch(() => { console.log("Fullscreen blocked by OS"); });
+
     const video = document.getElementById("streamVideo") as HTMLVideoElement;
     video.srcObject = stream;
     video.onloadedmetadata = () => {
@@ -679,6 +727,11 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     };
 
     const sendInput = (e: Event) => {
+        if (e instanceof KeyboardEvent || e instanceof MouseEvent) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
         if (!inputChannel || inputChannel.readyState !== "open") return;
 
         let payload: any = { type: e.type };
@@ -703,10 +756,11 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     video.addEventListener("mouseup", sendInput);
     video.addEventListener("contextmenu", (e) => e.preventDefault());
 
-    window.addEventListener("keydown", sendInput);
-    window.addEventListener("keyup", sendInput);
+    window.addEventListener("keydown", sendInput, true);
+    window.addEventListener("keyup", sendInput, true);
 
     const stop = () => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
         clientWsInstance?.send(JSON.stringify({
             type: "stream-ended", target: hostId, payload: null,
         }));

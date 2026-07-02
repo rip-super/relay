@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { homedir, hostname } from "os";
-import { spawn } from "child_process";
+import { spawn, exec } from "child_process";
 import { mouse, keyboard, Button, Key, Point } from "@nut-tree-fork/nut-js";
 
 mouse.config.mouseSpeed = 0;
@@ -317,6 +317,27 @@ ipcMain.handle("get-desktop-sources", async () => {
         fetchWindowIcons: false
     });
     return sources.map(s => ({ id: s.id, name: s.name }));
+});
+
+ipcMain.handle("is-game-running", (_, game: { name: string }) => {
+    return new Promise((resolve) => {
+        let cmd = "";
+        if (process.platform === "win32") {
+            cmd = `tasklist | findstr /i "${game.name}"`;
+        } else if (process.platform === "darwin") {
+            cmd = `ps aux | grep -i "${game.name}" | grep -v grep`;
+        } else {
+            cmd = `pgrep -x "${game.name}"`;
+        }
+
+        exec(cmd, (err, stdout) => {
+            if (err || stdout.trim() === "") {
+                resolve(false);
+            } else {
+                resolve(true);
+            }
+        });
+    });
 });
 
 ipcMain.handle("simulate-input", async (_, event) => {
