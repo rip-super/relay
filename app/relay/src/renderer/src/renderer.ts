@@ -3,6 +3,7 @@ import "@fontsource/outfit/400.css";
 import "@fontsource/outfit/500.css";
 import "@fontsource/outfit/700.css";
 import "./style.css";
+import logoUrl from "./logo.png";
 
 const relay = (window as any).relay;
 
@@ -1438,7 +1439,7 @@ function renderPicker() {
             <div class="glass-card">
                 <div class="brand">
                     <div class="brand-rule"></div>
-                    <div class="wordmark">Relay</div>
+                    <img src="${logoUrl}" alt="Relay" class="wordmark-img" />
                     <div class="brand-rule"></div>
                 </div>
                 <div class="tagline">Your Games, Your Hardware, Anywhere</div>
@@ -1536,7 +1537,7 @@ async function renderHost() {
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div class="host-wrap">
     <div class="hud-pill hud-left">
-      <div class="wordmark-small">Relay</div>
+        <img src="${logoUrl}" alt="Relay" class="wordmark-small-img" />
     </div>
     <div class="hud-right-group">
         <div class="hud-pill">
@@ -1602,8 +1603,8 @@ function renderHostHome() {
         <div class="home-bg-layer" id="hbg1"></div>
         <div class="home-gradient"></div>
         <div class="hud-pill hud-left">
-          <div class="wordmark-small">Relay</div>
-        </div>
+  <img src="${logoUrl}" alt="Relay" class="wordmark-small-img" />
+</div>
         <div class="hud-right-group">
   <div class="hud-pill">
     <span class="code-label">Library code</span>
@@ -1916,7 +1917,7 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
             <div class="glass-card">
                 <div class="brand">
                     <div class="brand-rule"></div>
-                    <div class="wordmark">Relay</div>
+                    <img src="${logoUrl}" alt="Relay" class="wordmark-img" />
                     <div class="brand-rule"></div>
                 </div>
                 <div class="tagline">Enter a library code to connect</div>
@@ -2071,7 +2072,7 @@ function renderClientHome() {
         <div class="home-bg-layer" id="hbg1"></div>
         <div class="home-gradient"></div>
         <div class="hud-pill hud-left">
-          <div class="wordmark-small">Relay</div>
+            <img src="${logoUrl}" alt="Relay" class="wordmark-small-img" />
         </div>
         <div class="hud-right-group">
           <div class="hud-pill">
