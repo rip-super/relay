@@ -1,5 +1,5 @@
 appId: com.relay.app
-productName: relay
+productName: Relay
 directories:
   buildResources: build
 files:
@@ -12,12 +12,18 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: relay
+  executableName: Relay
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
