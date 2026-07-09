@@ -363,6 +363,25 @@ ipcMain.handle("simulate-input", async (_, event) => {
     }
 });
 
+ipcMain.handle("update-game-last-played", (_, appId: string) => {
+    const config = getConfig() as any;
+    if (!config?.games) return;
+
+    const game = config.games.find((g: any) => g.appId === appId);
+    if (game) {
+        game.lastPlayed = new Date().toISOString();
+        writeFileSync(configPath, JSON.stringify(config));
+
+        if (config.hostId) {
+            fetch(`https://relayapi.sahildash.dev/hosts/${config.hostId}/library`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ games: config.games }),
+            }).catch(() => { });
+        }
+    }
+});
+
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {

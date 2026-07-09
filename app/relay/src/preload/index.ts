@@ -29,6 +29,7 @@ if (process.contextIsolated) {
             getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
             simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
             isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
+            updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
         });
     } catch (error) {
         console.error(error);
@@ -61,5 +62,6 @@ if (process.contextIsolated) {
         getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
         simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
         isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
+        updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
     };
 }

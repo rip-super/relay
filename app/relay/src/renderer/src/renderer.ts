@@ -402,6 +402,12 @@ function connectHostWebSocket(hostId: string) {
         if (msg.type === "connect-request") {
             console.log("[relay] received connect-request, checking game status on host...");
 
+            if (msg.payload?.appId) {
+                await relay.updateGameLastPlayed(msg.payload.appId);
+                const localGame = libraryGames.find(g => g.appId === msg.payload.appId);
+                if (localGame) localGame.lastPlayed = new Date().toISOString();
+            }
+
             const isRunning = await relay.isGameRunning(msg.payload);
 
             if (!isRunning) {
@@ -1613,7 +1619,7 @@ function renderHostHome() {
               <div class="spot-genre" id="spotGenre">${recent[0]?.platform ?? ""}</div>
               <div class="spot-title" id="spotTitle">${recent[0]?.name ?? ""}</div>
               <div class="spot-meta">
-                <span id="spotLastPlayed">Last played ${recent[0]?.lastPlayed ?? "N/A"}</span>
+                <span id="spotLastPlayed">Last played ${recent[0]?.lastPlayed && recent[0].lastPlayed !== "N/A" ? formatRelativeTime(recent[0].lastPlayed) : "N/A"}</span>
                 ${recent[0]?.sizeOnDisk ? `<span class="spot-dot">·</span><span>${formatBytes(recent[0].sizeOnDisk)}</span>` : ""}
               </div>
             </div>
@@ -1813,7 +1819,7 @@ function openGameModal(g: LibraryGame) {
           <div class="game-modal-stats">
             <div class="stat-item">
               <span class="stat-label">Last Played</span>
-              <span class="stat-value">${g.lastPlayed}</span>
+              <span class="stat-value">${g.lastPlayed && g.lastPlayed !== "N/A" ? formatRelativeTime(g.lastPlayed) : "N/A"}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Install Size</span>
