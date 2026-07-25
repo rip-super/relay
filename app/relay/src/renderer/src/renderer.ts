@@ -84,8 +84,9 @@ let clientPeerConnection: RTCPeerConnection | null = null;
 let activeStreamOverlay: HTMLElement | null = null;
 
 let inputChannel: RTCDataChannel | null = null;
-
 let gameWatcher: NodeJS.Timeout | null = null;
+
+let streamInputAbort: AbortController | null = null;
 
 const RTC_CONFIG: RTCConfiguration = {
     iceServers: [
@@ -724,7 +725,9 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     document.body.appendChild(overlay);
     activeStreamOverlay = overlay;
 
-    overlay.requestFullscreen?.().catch(() => { console.log("Fullscreen blocked by OS"); });
+    overlay.requestFullscreen?.()
+        .then(() => (navigator as any).keyboard?.lock?.())
+        .catch(() => { console.log("[relay] fullscreen or keyboard lock unavailable"); });
 
     const video = document.getElementById("streamVideo") as HTMLVideoElement;
     video.srcObject = stream;
@@ -733,23 +736,30 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
         video.play().then(() => console.log("[relay] video is playing!")).catch(e => console.error("[relay] video play failed:", e));
     };
 
+    const BUTTON_MAP: Record<number, string> = { 0: "LEFT", 1: "MIDDLE", 2: "RIGHT" };
+
     const sendInput = (e: Event) => {
-        if (e instanceof KeyboardEvent || e instanceof MouseEvent) {
+        if (e instanceof KeyboardEvent || e instanceof MouseEvent || e instanceof WheelEvent) {
             e.preventDefault();
             e.stopPropagation();
         }
 
         if (!inputChannel || inputChannel.readyState !== "open") return;
 
-        let payload: any = { type: e.type };
+        const payload: any = { type: e.type };
 
-        if (e instanceof MouseEvent) {
+        if (e instanceof WheelEvent) {
+            payload.deltaX = e.deltaX;
+            payload.deltaY = e.deltaY;
+        } else if (e instanceof MouseEvent) {
             const rect = video.getBoundingClientRect();
             payload.x = (e.clientX - rect.left) / rect.width;
             payload.y = (e.clientY - rect.top) / rect.height;
 
             if (e.type === "mousedown" || e.type === "mouseup") {
-                payload.button = e.button === 0 ? "LEFT" : e.button === 2 ? "RIGHT" : "MIDDLE";
+                const btn = BUTTON_MAP[e.button];
+                if (!btn) return;
+                payload.button = btn;
             }
         } else if (e instanceof KeyboardEvent) {
             payload.key = e.code;
@@ -758,13 +768,18 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
         inputChannel.send(JSON.stringify(payload));
     };
 
-    video.addEventListener("mousemove", sendInput);
-    video.addEventListener("mousedown", sendInput);
-    video.addEventListener("mouseup", sendInput);
-    video.addEventListener("contextmenu", (e) => e.preventDefault());
+    streamInputAbort = new AbortController();
+    const sig = streamInputAbort.signal;
 
-    window.addEventListener("keydown", sendInput, true);
-    window.addEventListener("keyup", sendInput, true);
+    video.addEventListener("mousemove", sendInput, { signal: sig });
+    video.addEventListener("mousedown", sendInput, { signal: sig });
+    video.addEventListener("mouseup", sendInput, { signal: sig });
+    video.addEventListener("wheel", sendInput, { passive: false, signal: sig });
+    video.addEventListener("contextmenu", (e) => e.preventDefault(), { signal: sig });
+    video.addEventListener("auxclick", (e) => e.preventDefault(), { signal: sig });
+
+    window.addEventListener("keydown", sendInput, { capture: true, signal: sig });
+    window.addEventListener("keyup", sendInput, { capture: true, signal: sig });
 
     const stop = () => {
         if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
@@ -788,6 +803,9 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
 }
 
 function closeStreamOverlay() {
+    (navigator as any).keyboard?.unlock?.();
+    streamInputAbort?.abort();
+    streamInputAbort = null;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
     activeStreamOverlay?.remove();
     activeStreamOverlay = null;

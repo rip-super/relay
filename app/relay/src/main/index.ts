@@ -148,19 +148,36 @@ function scanSteamGames(): ScannedGame[] {
     return games.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function mapKey(code: string): Key | undefined {
-    if (code.startsWith("Key")) return Key[code.charAt(3) as keyof typeof Key];
-    if (code.startsWith("Digit")) return Key[code.charAt(5) as keyof typeof Key];
+const KEY_MAP: Record<string, Key> = {
+    Enter: Key.Enter, NumpadEnter: Key.Enter, Space: Key.Space,
+    Backspace: Key.Backspace, Tab: Key.Tab, Escape: Key.Escape,
+    Delete: Key.Delete, Insert: Key.Insert,
 
-    const map: Record<string, Key> = {
-        "Enter": Key.Enter, "Space": Key.Space, "Backspace": Key.Backspace,
-        "Tab": Key.Tab, "Escape": Key.Escape, "ShiftLeft": Key.LeftShift,
-        "ShiftRight": Key.RightShift, "ControlLeft": Key.LeftControl,
-        "ControlRight": Key.RightControl, "AltLeft": Key.LeftAlt,
-        "AltRight": Key.RightAlt, "MetaLeft": Key.LeftSuper, "MetaRight": Key.RightSuper,
-        "ArrowUp": Key.Up, "ArrowDown": Key.Down, "ArrowLeft": Key.Left, "ArrowRight": Key.Right,
-    };
-    return map[code];
+    ShiftLeft: Key.LeftShift, ShiftRight: Key.RightShift,
+    ControlLeft: Key.LeftControl, ControlRight: Key.RightControl,
+    AltLeft: Key.LeftAlt, AltRight: Key.RightAlt,
+    MetaLeft: Key.LeftSuper, MetaRight: Key.RightSuper, CapsLock: Key.CapsLock,
+
+    ArrowUp: Key.Up, ArrowDown: Key.Down, ArrowLeft: Key.Left, ArrowRight: Key.Right,
+    Home: Key.Home, End: Key.End, PageUp: Key.PageUp, PageDown: Key.PageDown,
+
+    Backquote: Key.Grave, Minus: Key.Minus, Equal: Key.Equal,
+    BracketLeft: Key.LeftBracket, BracketRight: Key.RightBracket, Backslash: Key.Backslash,
+    Semicolon: Key.Semicolon, Quote: Key.Quote, Comma: Key.Comma,
+    Period: Key.Period, Slash: Key.Slash,
+
+    NumpadAdd: Key.Add, NumpadSubtract: Key.Subtract, NumpadMultiply: Key.Multiply,
+    NumpadDivide: Key.Divide, NumpadDecimal: Key.Decimal,
+
+    NumLock: Key.NumLock, ScrollLock: Key.ScrollLock, Pause: Key.Pause, PrintScreen: Key.Print,
+};
+
+function mapKey(code: string): Key | undefined {
+    if (/^Key[A-Z]$/.test(code)) return Key[code.slice(3) as keyof typeof Key];       // KeyW -> W
+    if (/^Digit[0-9]$/.test(code)) return Key[`Num${code.slice(5)}` as keyof typeof Key];   // Digit1 -> Num1
+    if (/^Numpad[0-9]$/.test(code)) return Key[`NumPad${code.slice(6)}` as keyof typeof Key]; // Numpad1 -> NumPad1
+    if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return Key[code as keyof typeof Key];   // F1..F24
+    return KEY_MAP[code];
 }
 
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
@@ -351,12 +368,19 @@ ipcMain.handle("simulate-input", async (_, event) => {
             await mouse.pressButton(Button[event.button as keyof typeof Button]);
         } else if (event.type === "mouseup") {
             await mouse.releaseButton(Button[event.button as keyof typeof Button]);
+        } else if (event.type === "wheel") {
+            const dy = Math.round(event.deltaY / 100);
+            const dx = Math.round(event.deltaX / 100);
+            if (dy > 0) await mouse.scrollDown(dy);
+            else if (dy < 0) await mouse.scrollUp(-dy);
+            if (dx > 0) await mouse.scrollRight(dx);
+            else if (dx < 0) await mouse.scrollLeft(-dx);
         } else if (event.type === "keydown") {
             const key = mapKey(event.key);
-            if (key) await keyboard.pressKey(key);
+            if (key !== undefined) await keyboard.pressKey(key);
         } else if (event.type === "keyup") {
             const key = mapKey(event.key);
-            if (key) await keyboard.releaseKey(key);
+            if (key !== undefined) await keyboard.releaseKey(key);
         }
     } catch (e) {
         console.error("[relay] input simulation failed:", e);
