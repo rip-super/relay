@@ -63,7 +63,32 @@ interface LibraryGame {
     platform: string;
     installDir: string;
     executablePath: string;
-    launchConfig: { type: string; exePath?: string };
+    launchConfig: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
+}
+
+type ScannedGame = {
+    appId: string; name: string; sizeOnDisk: number; source: string;
+    installDir?: string; executablePath?: string;
+    launchConfig?: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
+};
+
+function platformLabel(source: string): string {
+    if (source === "epic") return "Epic Games";
+    if (source === "gog") return "GOG";
+    return "Steam";
+}
+
+function normalizeScannedGames(games: ScannedGame[]): LibraryGame[] {
+    return games
+        .filter((g) => !g.name.toLowerCase().includes("steamworks common redistributables"))
+        .map((g) => ({
+            lastPlayed: "N/A",
+            installDir: "",
+            executablePath: "",
+            launchConfig: { type: "steam" as const },
+            ...g,
+            platform: platformLabel(g.source),
+        }) as LibraryGame);
 }
 
 let libraryGames: LibraryGame[] = [];
@@ -1306,16 +1331,7 @@ function attachScanHandler() {
         await new Promise<void>(r => setTimeout(r, 350));
         stopAnim();
 
-        libraryGames = games.filter(g =>
-            !g.name.toLowerCase().includes("steamworks common redistributables")
-        ).map(g => ({
-            lastPlayed: "N/A",
-            platform: "Steam",
-            installDir: "",
-            executablePath: "",
-            launchConfig: { type: "steam" as const },
-            ...g,
-        }));
+        libraryGames = normalizeScannedGames(games as any);
 
         await relay.saveGames(libraryGames);
         const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -1342,16 +1358,7 @@ async function rescanLibrary(): Promise<boolean> {
         libraryGames.some(g => !freshIds.has(g.appId));
 
     if (changed) {
-        libraryGames = fresh.filter(g =>
-            !g.name.toLowerCase().includes("steamworks common redistributables")
-        ).map(g => ({
-            lastPlayed: "N/A",
-            platform: "Steam",
-            installDir: "",
-            executablePath: "",
-            launchConfig: { type: "steam" as const },
-            ...g,
-        }));
+        libraryGames = normalizeScannedGames(fresh as any);
         await relay.saveGames(libraryGames);
     }
     return changed;
@@ -1371,16 +1378,7 @@ async function init() {
     currentMode = (mode as "host" | "client" | null);
 
     if (mode === "host" && savedGames?.length) {
-        libraryGames = (savedGames as any[]).filter(g =>
-            !g.name.toLowerCase().includes("steamworks common redistributables")
-        ).map(g => ({
-            lastPlayed: "N/A",
-            platform: "Steam",
-            installDir: "",
-            executablePath: "",
-            launchConfig: { type: "steam" as const },
-            ...g,
-        }));
+        libraryGames = normalizeScannedGames(savedGames as any);
 
         const config = await relay.getHostConfig();
         if (config) {

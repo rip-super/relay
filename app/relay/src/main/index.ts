@@ -9,15 +9,20 @@ import { mouse, keyboard, Button, Key, Point } from "@nut-tree-fork/nut-js";
 mouse.config.mouseSpeed = 0;
 keyboard.config.autoDelayMs = 0;
 
-// todo: epicgames, gog, etc.
+type LaunchConfig =
+    | { type: "steam" }
+    | { type: "epic"; epicAppName: string }
+    | { type: "gog"; exePath: string; workingDir?: string }
+    | { type: "exe"; exePath: string; workingDir?: string };
+
 interface ScannedGame {
     appId: string;
     name: string;
     installDir: string;
     executablePath: string;
-    launchConfig: { type: "steam" | "exe"; exePath?: string };
+    launchConfig: LaunchConfig;
     sizeOnDisk: number;
-    source: "steam";
+    source: "steam" | "epic" | "gog";
 }
 
 const configPath = join(app.getPath("userData"), "config.json");
@@ -136,7 +141,7 @@ function scanSteamGames(): ScannedGame[] {
                         name: d["name"] ?? `App ${appId}`,
                         installDir,
                         executablePath,
-                        launchConfig: { type: "steam", exePath: executablePath },
+                        launchConfig: { type: "steam" },
                         sizeOnDisk: parseInt(d["sizeondisk"] ?? "0", 10),
                         source: "steam",
                     });
@@ -146,6 +151,174 @@ function scanSteamGames(): ScannedGame[] {
     }
 
     return games.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function findEpicManifestDirs(): string[] {
+    const dirs: string[] = [];
+    if (process.platform === "win32") {
+        const programData = process.env["PROGRAMDATA"] ?? "C:\\ProgramData";
+        dirs.push(join(programData, "Epic", "EpicGamesLauncher", "Data", "Manifests"));
+    } else if (process.platform === "darwin") {
+        dirs.push(join(homedir(), "Library", "Application Support",
+            "Epic", "EpicGamesLauncher", "Data", "Manifests"));
+    }
+    return dirs.filter((d) => existsSync(d));
+}
+
+function scanEpicGames(): ScannedGame[] {
+    const games: ScannedGame[] = [];
+    const seen = new Set<string>();
+
+    for (const dir of findEpicManifestDirs()) {
+        let files: string[];
+        try {
+            files = readdirSync(dir).filter((f) => f.endsWith(".item"));
+        } catch { continue; }
+
+        for (const file of files) {
+            try {
+                const m = JSON.parse(readFileSync(join(dir, file), "utf-8"));
+
+                if (!m.bIsApplication) continue;
+                if (Array.isArray(m.AppCategories) && !m.AppCategories.includes("games")) continue;
+                if (!m.LaunchExecutable) continue;
+                if (m.MainGameAppName && m.MainGameAppName !== m.AppName) continue;
+
+                const appName: string = m.AppName;
+                if (!appName || seen.has(appName)) continue;
+                seen.add(appName);
+
+                const installDir: string = m.InstallLocation ?? "";
+                const executablePath =
+                    installDir && m.LaunchExecutable ? join(installDir, m.LaunchExecutable) : "";
+
+                games.push({
+                    appId: appName,
+                    name: m.DisplayName ?? appName,
+                    installDir,
+                    executablePath,
+                    launchConfig: { type: "epic", epicAppName: appName },
+                    sizeOnDisk: typeof m.InstallSize === "number" ? m.InstallSize : 0,
+                    source: "epic",
+                });
+            } catch { }
+        }
+    }
+    return games;
+}
+
+function runCommand(cmd: string): Promise<string> {
+    return new Promise((resolve) => {
+        exec(cmd, { windowsHide: true, maxBuffer: 1024 * 1024 * 8 }, (err, stdout) => {
+            resolve(err ? "" : stdout);
+        });
+    });
+}
+
+async function scanGogGamesWindows(): Promise<ScannedGame[]> {
+    const games: ScannedGame[] = [];
+    const seen = new Set<string>();
+    const roots = [
+        "HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games",
+        "HKLM\\SOFTWARE\\GOG.com\\Games",
+    ];
+
+    for (const root of roots) {
+        const listing = await runCommand(`reg query "${root}"`);
+        const subkeys = listing
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => /\\Games\\\d+$/i.test(l));
+
+        for (const key of subkeys) {
+            const out = await runCommand(`reg query "${key}"`);
+            const values: Record<string, string> = {};
+            for (const line of out.split(/\r?\n/)) {
+                const match = line.match(/^\s+(\S+)\s+REG_\w+\s+(.*)$/);
+                if (match) values[match[1].toLowerCase()] = match[2].trim();
+            }
+
+            const gameId = values["gameid"] ?? key.split("\\").pop() ?? "";
+            if (!gameId || seen.has(gameId)) continue;
+            seen.add(gameId);
+
+            const installDir = values["path"] ?? "";
+            let exePath = values["exe"] ?? "";
+            if (!exePath && installDir && values["exefile"]) {
+                exePath = join(installDir, values["exefile"]);
+            }
+            if (!exePath) continue;
+
+            games.push({
+                appId: `gog-${gameId}`,
+                name: values["gamename"] ?? `GOG ${gameId}`,
+                installDir,
+                executablePath: exePath,
+                launchConfig: { type: "gog", exePath, workingDir: values["workingdir"] || installDir },
+                sizeOnDisk: 0,
+                source: "gog",
+            });
+        }
+    }
+    return games;
+}
+
+function scanGogGamesMac(): ScannedGame[] {
+    const games: ScannedGame[] = [];
+    const seen = new Set<string>();
+
+    const searchDirs = [
+        "/Applications",
+        join(homedir(), "Applications"),
+    ].filter((d) => existsSync(d));
+
+    for (const dir of searchDirs) {
+        let entries: string[];
+        try {
+            entries = readdirSync(dir).filter((f) => f.endsWith(".app"));
+        } catch { continue; }
+
+        for (const appName of entries) {
+            const bundlePath = join(dir, appName);
+            const resourcesDir = join(bundlePath, "Contents", "Resources");
+
+            let infoFile: string | undefined;
+            try {
+                infoFile = readdirSync(resourcesDir).find(
+                    (f) => f.startsWith("goggame-") && f.endsWith(".info")
+                );
+            } catch { continue; }
+            if (!infoFile) continue;
+
+            try {
+                const info = JSON.parse(readFileSync(join(resourcesDir, infoFile), "utf-8"));
+                const gameId: string = info.gameId ?? info.rootGameId ?? infoFile.slice(8, -5);
+                if (!gameId || seen.has(gameId)) continue;
+                seen.add(gameId);
+
+                const binaryName = appName.replace(/\.app$/i, "");
+                const executablePath = join(bundlePath, "Contents", "MacOS", binaryName);
+
+                games.push({
+                    appId: `gog-${gameId}`,
+                    name: info.name ?? binaryName,
+                    installDir: bundlePath,
+                    executablePath,
+                    launchConfig: { type: "gog", exePath: bundlePath, workingDir: bundlePath },
+                    sizeOnDisk: 0,
+                    source: "gog",
+                });
+            } catch { }
+        }
+    }
+
+    return games;
+}
+
+async function scanGogGames(): Promise<ScannedGame[]> {
+    if (process.platform === "win32") return scanGogGamesWindows();
+    if (process.platform === "darwin") return scanGogGamesMac();
+    return []; // todo: linux
 }
 
 const KEY_MAP: Record<string, Key> = {
@@ -226,7 +399,14 @@ ipcMain.handle("register-host", async () => {
     return data;
 });
 
-ipcMain.handle("scan-games", () => scanSteamGames());
+ipcMain.handle("scan-games", async () => {
+    const [steam, epic, gog] = await Promise.all([
+        Promise.resolve(scanSteamGames()),
+        Promise.resolve(scanEpicGames()),
+        scanGogGames(),
+    ]);
+    return [...steam, ...epic, ...gog].sort((a, b) => a.name.localeCompare(b.name));
+});
 
 ipcMain.handle("get-saved-games", () => {
     const config = getConfig() as any;
@@ -346,13 +526,23 @@ ipcMain.handle("set-startup-settings", (_, settings: { launchOnLogin?: boolean; 
 
 ipcMain.handle("get-version", () => app.getVersion());
 
-ipcMain.handle("launch-game", async (_, game: { appId: string; source: string; installDir: string; launchConfig: { type: string; exePath?: string } }) => {
-    if (game.launchConfig.type === "steam") {
+ipcMain.handle("launch-game", async (_, game: {
+    appId: string; source: string; installDir: string; launchConfig: LaunchConfig;
+}) => {
+    const lc = game.launchConfig;
+    if (lc.type === "steam") {
         shell.openExternal(`steam://rungameid/${game.appId}`);
-    } else if (game.launchConfig.exePath) {
-        spawn(game.launchConfig.exePath, [], {
-            detached: true, stdio: "ignore", cwd: game.installDir,
-        }).unref();
+    } else if (lc.type === "epic") {
+        shell.openExternal(`com.epicgames.launcher://apps/${lc.epicAppName}?action=launch&silent=true`);
+    } else if ((lc.type === "gog" || lc.type === "exe") && lc.exePath) {
+        if (process.platform === "darwin" && lc.exePath.endsWith(".app")) {
+            spawn("open", [lc.exePath], { detached: true, stdio: "ignore" }).unref();
+        } else {
+            spawn(lc.exePath, [], {
+                detached: true, stdio: "ignore",
+                cwd: lc.workingDir || game.installDir,
+            }).unref();
+        }
     }
 });
 
