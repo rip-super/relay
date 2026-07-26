@@ -353,35 +353,6 @@ function mapKey(code: string): Key | undefined {
     return KEY_MAP[code];
 }
 
-let tray: Tray | null = null;
-
-function showMainWindow(): void {
-    if (!mainWindow) { createWindow(); return; }
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-}
-
-function createTray(): void {
-    if (tray) return;
-    try {
-        const iconPath = join(__dirname, "../../build/icon.png");
-        let image = nativeImage.createFromPath(iconPath);
-        if (!image.isEmpty()) image = image.resize({ width: 16, height: 16 });
-        tray = new Tray(image);
-        tray.setToolTip("Relay");
-        tray.setContextMenu(Menu.buildFromTemplate([
-            { label: "Open Relay", click: showMainWindow },
-            { type: "separator" },
-            { label: "Quit Relay", click: () => app.quit() },
-        ]));
-        tray.on("click", showMainWindow);
-        tray.on("double-click", showMainWindow);
-    } catch (e) {
-        console.error("[relay] failed to create tray:", e);
-    }
-}
-
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
 
@@ -631,6 +602,43 @@ ipcMain.handle("update-game-last-played", (_, appId: string) => {
 });
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+
+function showMainWindow(): void {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        createWindow();
+        return;
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+}
+
+function createTray(): void {
+    if (tray) return;
+    try {
+        const iconPath = join(__dirname, "../../build/icon.png");
+        let image = nativeImage.createFromPath(iconPath);
+        if (!image.isEmpty()) image = image.resize({ width: 16, height: 16 });
+        tray = new Tray(image);
+        tray.setToolTip("Relay");
+
+        const menu = Menu.buildFromTemplate([
+            { label: "Open Relay", click: showMainWindow },
+            { type: "separator" },
+            { label: "Quit Relay", click: () => app.quit() },
+        ]);
+
+        if (process.platform === "win32") {
+            tray.on("click", showMainWindow);
+            tray.setContextMenu(menu);
+        } else {
+            tray.setContextMenu(menu);
+        }
+    } catch (e) {
+        console.error("[relay] failed to create tray:", e);
+    }
+}
 
 function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -655,6 +663,10 @@ function createWindow(): void {
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url);
         return { action: "deny" };
+    });
+
+    mainWindow.on("closed", () => {
+        mainWindow = null;
     });
 
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
