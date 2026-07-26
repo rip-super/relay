@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session, screen } from "electron";
+import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session, screen, Tray, Menu, nativeImage } from "electron";
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -180,6 +180,35 @@ function mapKey(code: string): Key | undefined {
     return KEY_MAP[code];
 }
 
+let tray: Tray | null = null;
+
+function showMainWindow(): void {
+    if (!mainWindow) { createWindow(); return; }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+}
+
+function createTray(): void {
+    if (tray) return;
+    try {
+        const iconPath = join(__dirname, "../../build/icon.png");
+        let image = nativeImage.createFromPath(iconPath);
+        if (!image.isEmpty()) image = image.resize({ width: 16, height: 16 });
+        tray = new Tray(image);
+        tray.setToolTip("Relay");
+        tray.setContextMenu(Menu.buildFromTemplate([
+            { label: "Open Relay", click: showMainWindow },
+            { type: "separator" },
+            { label: "Quit Relay", click: () => app.quit() },
+        ]));
+        tray.on("click", showMainWindow);
+        tray.on("double-click", showMainWindow);
+    } catch (e) {
+        console.error("[relay] failed to create tray:", e);
+    }
+}
+
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
 
@@ -336,24 +365,29 @@ ipcMain.handle("get-desktop-sources", async () => {
     return sources.map(s => ({ id: s.id, name: s.name }));
 });
 
-ipcMain.handle("is-game-running", (_, game: { name: string }) => {
-    return new Promise((resolve) => {
-        let cmd = "";
-        if (process.platform === "win32") {
-            cmd = `tasklist | findstr /i "${game.name}"`;
-        } else if (process.platform === "darwin") {
-            cmd = `ps aux | grep -i "${game.name}" | grep -v grep`;
-        } else {
-            cmd = `pgrep -x "${game.name}"`;
-        }
+ipcMain.handle("is-game-running", (_, game: { name: string; executablePath?: string; launchConfig?: { exePath?: string } }) => {
+    return new Promise<boolean>((resolve) => {
+        const exePath = game.executablePath || game.launchConfig?.exePath || "";
+        const exeName = exePath ? exePath.split(/[\\/]/).pop() ?? "" : "";
+        const name = (game.name ?? "").toLowerCase();
 
-        exec(cmd, (err, stdout) => {
-            if (err || stdout.trim() === "") {
-                resolve(false);
-            } else {
-                resolve(true);
+        const runExec = (cmd: string) =>
+            new Promise<string>((res) => exec(cmd, (err, stdout) => res(err ? "" : stdout)));
+
+        (async () => {
+            if (process.platform === "win32") {
+                if (exeName) {
+                    const out = await runExec(`tasklist /FI "IMAGENAME eq ${exeName}" /NH`);
+                    if (out.toLowerCase().includes(exeName.toLowerCase())) return resolve(true);
+                }
+                const all = await runExec("tasklist /NH");
+                return resolve(!!name && all.toLowerCase().includes(name));
             }
-        });
+            const needle = (exeName ? exeName.replace(/\.exe$/i, "") : game.name) || "";
+            if (!needle) return resolve(false);
+            const out = await runExec(`pgrep -if ${JSON.stringify(needle)}`);
+            return resolve(out.trim() !== "");
+        })();
     });
 });
 
@@ -423,7 +457,10 @@ function createWindow(): void {
         },
     });
 
-    mainWindow.on("ready-to-show", () => mainWindow!.show());
+    mainWindow.on("ready-to-show", () => {
+        const startMinimized = (getConfig() as any)?.startMinimized ?? false;
+        if (!(startMinimized && tray)) mainWindow!.show();
+    });
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url);
@@ -465,6 +502,7 @@ app.whenReady().then(() => {
         optimizer.watchWindowShortcuts(window);
     });
 
+    createTray();
     createWindow();
 
     app.on("activate", () => {

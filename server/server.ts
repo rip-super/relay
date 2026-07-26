@@ -198,7 +198,8 @@ app.get("/ws", upgradeWebSocket(() => {
             }
 
             if (msg.type === "stream-ended") {
-                activeSessions.delete(msg.target!);
+                if (msg.target) activeSessions.delete(msg.target);
+                if (myId) activeSessions.delete(myId);
                 const target = peers.get(msg.target!);
                 if (target) target.send(JSON.stringify({ type: "stream-ended", from: myId }));
                 return;

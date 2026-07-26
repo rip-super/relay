@@ -389,6 +389,22 @@ function tuneSdp(sdp: string): string {
     return sdp.replace(/a=mid:0\r\n/, 'a=mid:0\r\nb=AS:25000\r\n');
 }
 
+function teardownHostStream(): void {
+    if (gameWatcher) {
+        clearInterval(gameWatcher);
+        gameWatcher = null;
+    }
+    if (hostPeerConnection) {
+        hostPeerConnection.getSenders().forEach(s => s.track?.stop());
+        hostPeerConnection.close();
+    }
+    hostPeerConnection = null;
+    if ((window as any).__stopNativeCapture) {
+        (window as any).__stopNativeCapture();
+        (window as any).__stopNativeCapture = null;
+    }
+}
+
 function connectHostWebSocket(hostId: string) {
     if (hostWsInstance?.readyState === WebSocket.OPEN ||
         hostWsInstance?.readyState === WebSocket.CONNECTING) return;
@@ -427,32 +443,26 @@ function connectHostWebSocket(hostId: string) {
             await startHostStreaming(msg.from, msg.payload);
 
             if (gameWatcher) clearInterval(gameWatcher);
+            let hasBeenRunning = false;
+            let missedChecks = 0;
             const watcher = setInterval(async () => {
                 const stillRunning = await relay.isGameRunning(msg.payload);
-                if (!stillRunning) {
-                    console.log("[relay] Game closed by host, ending stream.");
-                    clearInterval(watcher);
-                    gameWatcher = null;
-
-                    if (hostPeerConnection) {
-                        hostPeerConnection.getSenders().forEach(s => s.track?.stop());
-                    }
-                    hostPeerConnection?.close();
-                    hostPeerConnection = null;
-
-                    if ((window as any).__stopNativeCapture) {
-                        (window as any).__stopNativeCapture();
-                        (window as any).__stopNativeCapture = null;
-                    }
-
-                    hostWsInstance?.send(JSON.stringify({
-                        type: "stream-ended", target: msg.from, payload: null
-                    }));
+                if (stillRunning) {
+                    hasBeenRunning = true;
+                    missedChecks = 0;
+                    return;
                 }
+
+                if (!hasBeenRunning) return;
+
+                if (++missedChecks < 2) return;
+                console.log("[relay] Game closed by host, ending stream.");
+                teardownHostStream();
+                hostWsInstance?.send(JSON.stringify({
+                    type: "stream-ended", target: msg.from, payload: null
+                }));
             }, 3000);
-
             gameWatcher = watcher;
-
             return;
         }
 
@@ -468,21 +478,7 @@ function connectHostWebSocket(hostId: string) {
         }
 
         if (msg.type === "stream-ended") {
-            if (gameWatcher) {
-                clearInterval(gameWatcher);
-                gameWatcher = null;
-            }
-
-            if (hostPeerConnection) {
-                hostPeerConnection.getSenders().forEach(s => s.track?.stop());
-            }
-            hostPeerConnection?.close();
-            hostPeerConnection = null;
-
-            if ((window as any).__stopNativeCapture) {
-                (window as any).__stopNativeCapture();
-                (window as any).__stopNativeCapture = null;
-            }
+            teardownHostStream();
             console.log("[relay] stream ended by client");
             return;
         }
@@ -548,19 +544,14 @@ function connectClientWebSocket() {
         }
 
         else if (msg.type === "session-busy") {
-            const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
-            if (playBtn) {
-                playBtn.disabled = false;
-                playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-        </svg> Play`;
-            }
+            resetPlayButton();
             alert("Host is already streaming to another device.");
             return;
         }
 
         else if (msg.type === "stream-ended") {
             closeStreamOverlay();
+            resetPlayButton();
             return;
         }
     };
@@ -827,6 +818,16 @@ function closeStreamOverlay() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
     activeStreamOverlay?.remove();
     activeStreamOverlay = null;
+}
+
+function resetPlayButton() {
+    const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
+    if (playBtn) {
+        playBtn.disabled = false;
+        playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+        </svg> Play`;
+    }
 }
 
 function attachDeviceRowHandlers(row: HTMLElement) {
@@ -1905,10 +1906,10 @@ function openGameModal(g: LibraryGame) {
 
             const timeout = setTimeout(() => {
                 if (!activeStreamOverlay) {
-                    btn.disabled = false;
-                    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-            </svg> Play`;
+                    clientWsInstance?.send(JSON.stringify({
+                        type: "stream-ended", target: clientHostId, payload: null
+                    }));
+                    resetPlayButton();
                 }
             }, 30000);
 
