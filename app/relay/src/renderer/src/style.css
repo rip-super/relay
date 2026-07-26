@@ -2110,3 +2110,43 @@ body {
     width: auto;
     object-fit: contain;
 }
+
+.host-switch-row {
+    margin-top: -8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.host-switch-sep {
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .14), transparent);
+}
+
+.host-switch-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    color: rgba(255, 255, 255, .55);
+    transition: color .18s ease;
+}
+
+.host-switch-link strong {
+    font-weight: 600;
+    color: rgba(255, 255, 255, .9);
+}
+
+.host-switch-link:hover {
+    color: rgba(255, 255, 255, .8);
+}
+
+.host-switch-link svg {
+    opacity: .7;
+}

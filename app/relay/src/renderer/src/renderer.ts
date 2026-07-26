@@ -1964,6 +1964,12 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
                 <div class="code-entry-error" id="codeError" style="display:none"></div>
                 <button class="scan-btn code-connect-btn" id="connectBtn">Connect</button>
                 <div class="pick-hint">Get this code from the host device running Relay</div>
+                <div class="host-switch-row">
+                    <span class="host-switch-sep"></span>
+                    <button id="switchToHostBtn" class="host-switch-link">
+                        This PC has the games? <br> <strong>Switch to Host</strong>
+                    </button>
+                </div>
             </div>
         </div>`;
 
@@ -2092,6 +2098,17 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
 
         connectClientWebSocket();
         navigateTo(renderClientHome);
+    });
+
+    document.getElementById("switchToHostBtn")!.addEventListener("click", async () => {
+        clientWsInstance?.close(); clientWsInstance = null;
+        clientId = ""; clientHostId = ""; clientHostCode = ""; clientDisplayName = "";
+        libraryGames = []; libraryCode = "";
+        await relay.setMode("host");
+        await relay.saveGames([]);
+        await relay.saveClientConfig({ clientId: "", hostId: "", hostCode: "", displayName: "" });
+        currentMode = "host";
+        navigateTo(renderHost);
     });
 }
 
