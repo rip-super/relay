@@ -3,3 +3,4 @@ roadmap.html
 node_modules/
 relay.db
 test.html
+.env

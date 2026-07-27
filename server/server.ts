@@ -5,6 +5,9 @@ import { WebSocketServer } from "ws";
 import type { WSContext } from "hono/ws";
 import { randomBytes } from "crypto";
 import Database from "better-sqlite3";
+import { config } from "dotenv"
+
+config();
 
 type SignalMessage = {
     type: "register" | "connect-request" | "offer" | "answer" | "ice-candidate" | "stream-ended";
@@ -31,7 +34,27 @@ db.exec(`
         FOREIGN KEY (host_id) REFERENCES hosts(id) ON DELETE CASCADE
     );
 `);
+
 try { db.exec("ALTER TABLE hosts ADD COLUMN library TEXT"); } catch { }
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS art_cache (
+        name       TEXT PRIMARY KEY,
+        portrait   TEXT,
+        hero       TEXT,
+        capsule    TEXT,
+        fetched_at TEXT
+    );
+`);
+
+const getArt = db.prepare("SELECT portrait, hero, capsule FROM art_cache WHERE name = ?");
+const setArt = db.prepare(`
+    INSERT INTO art_cache (name, portrait, hero, capsule, fetched_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(name) DO UPDATE SET
+        portrait = excluded.portrait, hero = excluded.hero,
+        capsule = excluded.capsule, fetched_at = excluded.fetched_at
+`);
 
 const insertHost = db.prepare("INSERT INTO hosts (id, code) VALUES (?, ?)");
 const findByCode = db.prepare("SELECT id FROM hosts WHERE code = ?");
@@ -55,6 +78,49 @@ const peers = new Map<string, WSContext>();
 const onlineHosts = new Map<string, WSContext>();
 const activeSessions = new Set<string>();
 const deviceHosts = new Map<string, string>();
+
+const SGDB_BASE = "https://www.steamgriddb.com/api/v2";
+const SGDB_KEY = process.env.STEAMGRIDDB_KEY ?? "";
+
+async function sgdb(path: string): Promise<any> {
+    const res = await fetch(`${SGDB_BASE}${path}`, {
+        headers: { Authorization: `Bearer ${SGDB_KEY}` },
+    });
+    return res.ok ? res.json() : null;
+}
+
+async function resolveArt(name: string) {
+    const empty = { portrait: "", hero: "", capsule: "" };
+
+    const search = await sgdb(`/search/autocomplete/${encodeURIComponent(name)}`);
+    const game = search?.data?.[0];
+    if (!game) return empty;
+
+    const [portraitGrid, wideGrid, hero] = await Promise.all([
+        sgdb(`/grids/game/${game.id}?dimensions=600x900&types=static`),
+        sgdb(`/grids/game/${game.id}?dimensions=460x215,920x430&types=static`),
+        sgdb(`/heroes/game/${game.id}?types=static`),
+    ]);
+
+    const portrait = portraitGrid?.data?.[0]?.url ?? "";
+    return {
+        portrait,
+        hero: hero?.data?.[0]?.url ?? "",
+        capsule: wideGrid?.data?.[0]?.url ?? portrait,
+    };
+}
+
+app.get("/art/resolve", async (c) => {
+    const name = c.req.query("name");
+    if (!name) return c.json({ portrait: "", hero: "", capsule: "" });
+
+    const cached = getArt.get(name) as any;
+    if (cached) return c.json(cached);
+
+    const art = await resolveArt(name);
+    setArt.run(name, art.portrait, art.hero, art.capsule, new Date().toISOString());
+    return c.json(art);
+});
 
 const interval = setInterval(() => {
     wss.clients.forEach((ws) => {

@@ -13,6 +13,7 @@
     "dependencies": {
         "@hono/node-server": "^2.0.6",
         "better-sqlite3": "^12.11.1",
+        "dotenv": "^17.4.2",
         "hono": "^4.12.27",
         "ws": "^8.21.0"
     },
@@ -22,5 +23,10 @@
         "@types/ws": "^8.18.1",
         "tsx": "^4.22.4",
         "typescript": "^6.0.3"
+    },
+    "allowScripts": {
+        "better-sqlite3@12.11.1": true,
+        "esbuild@0.28.1": true,
+        "fsevents@2.3.3": true
     }
 }

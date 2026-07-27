@@ -54,6 +54,16 @@ function capsuleUrl(appId: string | number): string {
     return `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/capsule_616x353.jpg`;
 }
 
+function gameArt(g: { appId: string; source: string; gridImages?: { portrait: string; hero: string; capsule: string } }, kind: "portrait" | "hero" | "capsule"): string {
+    if (g.gridImages?.[kind]) return g.gridImages[kind];
+    if (g.source === "steam") {
+        return kind === "portrait" ? portraitUrl(g.appId)
+            : kind === "hero" ? heroUrl(g.appId)
+                : capsuleUrl(g.appId);
+    }
+    return "";
+}
+
 interface LibraryGame {
     appId: string;
     name: string;
@@ -63,14 +73,26 @@ interface LibraryGame {
     platform: string;
     installDir: string;
     executablePath: string;
+    gridImages?: { portrait: string; hero: string; capsule: string };
     launchConfig: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
 }
 
 type ScannedGame = {
     appId: string; name: string; sizeOnDisk: number; source: string;
     installDir?: string; executablePath?: string;
+    gridImages?: { portrait: string; hero: string; capsule: string };
     launchConfig?: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
 };
+
+async function resolveArtForGames(games: LibraryGame[]): Promise<void> {
+    const need = games.filter(g => g.source !== "steam" && !g.gridImages);
+    await Promise.all(need.map(async (g) => {
+        try {
+            const res = await fetch(`https://relayapi.sahildash.dev/art/resolve?name=${encodeURIComponent(g.name)}`);
+            if (res.ok) g.gridImages = await res.json();
+        } catch { }
+    }));
+}
 
 function platformLabel(source: string): string {
     if (source === "epic") return "Epic Games";
@@ -1311,10 +1333,10 @@ function attachScanHandler() {
 
         const urls: string[] = [];
         games.forEach((g, i) => {
-            urls.push(portraitUrl(g.appId));
+            urls.push(gameArt(g, "portrait"));
             if (i < 8) {
-                urls.push(heroUrl(g.appId));
-                urls.push(capsuleUrl(g.appId));
+                urls.push(gameArt(g, "hero"));
+                urls.push(gameArt(g, "capsule"));
             }
         });
 
@@ -1332,12 +1354,16 @@ function attachScanHandler() {
         stopAnim();
 
         libraryGames = normalizeScannedGames(games as any);
-
+        await resolveArtForGames(libraryGames);
         await relay.saveGames(libraryGames);
+
         const app = document.querySelector<HTMLDivElement>("#app")!;
         app.classList.add("page-exit");
+
         await new Promise<void>(r => setTimeout(r, 350));
+
         renderHostHome();
+
         void app.offsetWidth;
         app.classList.remove("page-exit");
     };
@@ -1359,6 +1385,7 @@ async function rescanLibrary(): Promise<boolean> {
 
     if (changed) {
         libraryGames = normalizeScannedGames(fresh as any);
+        await resolveArtForGames(libraryGames);
         await relay.saveGames(libraryGames);
     }
     return changed;
@@ -1388,8 +1415,8 @@ async function init() {
         }
         const urls: string[] = [];
         savedGames.forEach((g, i) => {
-            urls.push(portraitUrl(g.appId));
-            if (i < 8) { urls.push(heroUrl(g.appId)); urls.push(capsuleUrl(g.appId)); }
+            urls.push(gameArt(g, "portrait"));
+            if (i < 8) { urls.push(gameArt(g, "hero")); urls.push(gameArt(g, "capsule")); }
         });
         const appEl = document.querySelector<HTMLDivElement>("#app")!;
         appEl.classList.add("page-exit");
@@ -1429,7 +1456,7 @@ async function init() {
             const library = await relay.getHostLibrary(clientHostId) as LibraryGame[] | null;
             if (library?.length) {
                 libraryGames = library;
-                const urls = library.slice(0, 8).flatMap(g => [portraitUrl(g.appId), heroUrl(g.appId), capsuleUrl(g.appId)]);
+                const urls = library.slice(0, 8).flatMap(g => [gameArt(g, "portrait"), gameArt(g, "hero"), gameArt(g, "capsule")]);
                 await Promise.all(urls.map(preloadImage));
                 renderClientHome();
                 connectClientWebSocket();
@@ -1667,8 +1694,8 @@ function renderHostHome() {
             <div class="recent-row" id="recentRow">
               ${recent.map((g, i) => `
                 <div class="game-item" data-idx="${i}">
-                  <img class="art-portrait" src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.remove()">
-                  <img class="art-landscape" src="${capsuleUrl(g.appId)}" alt="" onerror="this.remove()">
+                  <img class="art-portrait" src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.remove()">
+                  <img class="art-landscape" src="${gameArt(g, "capsule")}" alt="" onerror="this.remove()">
                   <div class="game-item-overlay">
                     <div class="game-item-name">${g.name}</div>
                   </div>
@@ -1676,7 +1703,7 @@ function renderHostHome() {
               `).join("")}
               <div class="game-item lib-card" id="libCard">
                 <div class="lib-card-collage">
-                  ${collage.map(g => `<img src="${portraitUrl(g.appId)}" alt="">`).join("")}
+                  ${collage.map(g => `<img src="${gameArt(g, "portrait")}" alt="">`).join("")}
                   <div class="lib-card-collage-overlay"></div>
                 </div>
                 <div class="lib-card-body">
@@ -1778,7 +1805,7 @@ function renderHostLibrary() {
         <div class="library-grid">
           ${games.map((g, i) => `
             <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
-              <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.opacity='0'">
+              <img src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.style.opacity='0'">
               <div class="library-card-overlay">
                 <div class="library-card-name">${g.name}</div>
               </div>
@@ -1835,7 +1862,7 @@ function openGameModal(g: LibraryGame) {
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
     <div class="game-modal">
-      <div class="game-modal-bg" style="background-image: url('${heroUrl(g.appId)}')"></div>
+      <div class="game-modal-bg" style="background-image: url('${gameArt(g, "hero")}')"></div>
       <div class="game-modal-vignette"></div>
       <button class="modal-close-btn" id="modalClose">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -1844,7 +1871,7 @@ function openGameModal(g: LibraryGame) {
       </button>
       <div class="game-modal-inner">
         <div class="game-modal-art">
-          <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.display='none'"/>
+          <img src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.style.display='none'"/>
         </div>
         <div class="game-modal-info">
           <div>
@@ -2075,10 +2102,10 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
         const urls: string[] = [];
         if (library?.length) {
             library.forEach((g, i) => {
-                urls.push(portraitUrl(g.appId));
+                urls.push(gameArt(g, "portrait"));
                 if (i < 8) {
-                    urls.push(heroUrl(g.appId));
-                    urls.push(capsuleUrl(g.appId));
+                    urls.push(gameArt(g, "hero"));
+                    urls.push(gameArt(g, "capsule"));
                 }
             });
         }
@@ -2151,13 +2178,13 @@ function renderClientHome() {
             <div class="recent-row" id="recentRow">
               ${recent.map((g, i) => `
                 <div class="game-item" data-idx="${i}">
-                  <img class="art-portrait" src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.remove()">
-                  <img class="art-landscape" src="${capsuleUrl(g.appId)}" alt="" onerror="this.remove()">
+                  <img class="art-portrait" src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.remove()">
+                  <img class="art-landscape" src="${gameArt(g, "capsule")}" alt="" onerror="this.remove()">
                   <div class="game-item-overlay"><div class="game-item-name">${g.name}</div></div>
                 </div>`).join("")}
               <div class="game-item lib-card" id="libCard">
                 <div class="lib-card-collage">
-                  ${collage.map(g => `<img src="${portraitUrl(g.appId)}" alt="">`).join("")}
+                  ${collage.map(g => `<img src="${gameArt(g, "portrait")}" alt="">`).join("")}
                   <div class="lib-card-collage-overlay"></div>
                 </div>
                 <div class="lib-card-body">
@@ -2241,7 +2268,7 @@ function renderClientLibrary() {
         <div class="library-grid">
           ${games.map((g, i) => `
             <div class="library-card${i < 8 ? " recent" : ""}" data-idx="${i}">
-              <img src="${portraitUrl(g.appId)}" alt="${g.name}" onerror="this.style.opacity='0'">
+              <img src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.style.opacity='0'">
               <div class="library-card-overlay">
                 <div class="library-card-name">${g.name}</div>
               </div>
