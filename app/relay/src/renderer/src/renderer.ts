@@ -716,7 +716,7 @@ async function startHostStreaming(toClientId: string, payload: any) {
 function startStatsOverlay(pc: RTCPeerConnection): () => void {
     const box = document.createElement("div");
     box.style.cssText = "position:fixed;top:10px;left:10px;z-index:100000;background:rgba(0,0,0,.75);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:6px;white-space:pre;pointer-events:none;";
-    document.body.appendChild(box);
+    (activeStreamOverlay ?? document.body).appendChild(box);
 
     let lastFrames = 0, lastJbDelay = 0, lastJbCount = 0, lastTs = 0;
 
