@@ -679,14 +679,17 @@ async function startHostStreaming(toClientId: string, payload: any) {
         };
 
         stream.getTracks().forEach(t => {
+            if (t.kind === "video") {
+                t.contentHint = "motion";
+            }
             const sender = hostPeerConnection!.addTrack(t, stream);
 
             const params = sender.getParameters();
-            if (!params.encodings) {
-                params.encodings = [{}];
-            }
-            params.encodings[0].maxBitrate = 8000000;
+            if (!params.encodings) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 12000000;
+            params.encodings[0].maxFramerate = 60;
             params.encodings[0].scaleResolutionDownBy = 1.0;
+            params.degradationPreference = "maintain-framerate";
             sender.setParameters(params);
         });
 
@@ -710,6 +713,38 @@ async function startHostStreaming(toClientId: string, payload: any) {
     }
 }
 
+function startStatsOverlay(pc: RTCPeerConnection): () => void {
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;top:10px;left:10px;z-index:100000;background:rgba(0,0,0,.75);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:6px;white-space:pre;pointer-events:none;";
+    document.body.appendChild(box);
+
+    let lastFrames = 0, lastJbDelay = 0, lastJbCount = 0, lastTs = 0;
+
+    const id = setInterval(async () => {
+        const stats = await pc.getStats();
+        let out = "";
+        stats.forEach((r: any) => {
+            if (r.type === "inbound-rtp" && r.kind === "video") {
+                const now = r.timestamp;
+                const fps = lastTs ? Math.round((r.framesDecoded - lastFrames) / ((now - lastTs) / 1000)) : 0;
+
+                const jbMs = r.jitterBufferEmittedCount > lastJbCount
+                    ? Math.round((r.jitterBufferDelay - lastJbDelay) / (r.jitterBufferEmittedCount - lastJbCount) * 1000)
+                    : 0;
+                out += `decoder: ${r.decoderImplementation ?? "?"}\n`;
+                out += `fps: ${fps}\n`;
+                out += `jitterBuffer: ${jbMs} ms\n`;
+                out += `framesDropped: ${r.framesDropped ?? 0}\n`;
+                lastFrames = r.framesDecoded; lastTs = now;
+                lastJbDelay = r.jitterBufferDelay; lastJbCount = r.jitterBufferEmittedCount;
+            }
+        });
+        box.textContent = out || "waiting for video stats...";
+    }, 1000);
+
+    return () => { clearInterval(id); box.remove(); };
+}
+
 async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptionInit) {
     console.log("[relay] received offer, creating answer");
     clientPeerConnection?.close();
@@ -721,7 +756,10 @@ async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptio
 
     clientPeerConnection.ontrack = (e) => {
         console.log("[relay] stream track received. Track enabled:", e.track.enabled, "Track muted:", e.track.muted);
+        const receiver = clientPeerConnection!.getReceivers().find(r => r.track.kind === "video");
+        if (receiver && "playoutDelayHint" in receiver) (receiver as any).playoutDelayHint = 0;
         showStreamOverlay(e.streams[0], fromHostId);
+        (window as any).__stopStats = startStatsOverlay(clientPeerConnection!);
     };
 
     clientPeerConnection.onicecandidate = (e) => {
