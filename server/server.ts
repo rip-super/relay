@@ -56,6 +56,22 @@ const onlineHosts = new Map<string, WSContext>();
 const activeSessions = new Set<string>();
 const deviceHosts = new Map<string, string>();
 
+const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        const rawWs = ws as any;
+        if (rawWs.isAlive === false) return ws.terminate();
+
+        rawWs.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+process.on("SIGTERM", () => {
+    clearInterval(interval);
+    wss.close();
+    process.exit(0);
+});
+
 app.use("*", cors());
 
 app.post("/hosts/register", (c) => {
@@ -153,6 +169,10 @@ app.get("/ws", upgradeWebSocket(() => {
             if (msg.type === "register") {
                 myId = msg.id!;
                 peers.set(myId, ws);
+
+                const rawWs = ws.raw as any;
+                rawWs.isAlive = true;
+                rawWs.on("pong", () => { rawWs.isAlive = true; });
 
                 if (msg.role === "host" || findById.get(myId)) {
                     onlineHosts.set(myId, ws);

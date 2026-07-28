@@ -437,7 +437,16 @@ function createWindow(): void {
     }
 }
 
-app.commandLine.appendSwitch("enable-features", "MacLoopbackAudioForScreenShare");
+app.commandLine.appendSwitch("enable-features", [
+    "MacLoopbackAudioForScreenShare",
+    "PlatformHEVCDecoderSupport"
+].join(","));
+app.commandLine.appendSwitch("disable-features", "WebRtcHideLocalIpsWithMdns");
+app.commandLine.appendSwitch("max-gum-fps", "60");
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("force-fieldtrials", "WebRTC-FrameDropper/Disabled/");
 
 app.whenReady().then(() => {
     electronApp.setAppUserModelId("com.relay");

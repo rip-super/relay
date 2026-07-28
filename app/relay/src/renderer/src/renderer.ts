@@ -385,6 +385,10 @@ function formatRelativeTime(iso: string): string {
     return `${Math.floor(hours / 24)}d ago`;
 }
 
+function tuneSdp(sdp: string): string {
+    return sdp.replace(/a=mid:0\r\n/, 'a=mid:0\r\nb=AS:25000\r\n');
+}
+
 function connectHostWebSocket(hostId: string) {
     if (hostWsInstance?.readyState === WebSocket.OPEN ||
         hostWsInstance?.readyState === WebSocket.CONNECTING) return;
@@ -430,8 +434,12 @@ function connectHostWebSocket(hostId: string) {
                     clearInterval(watcher);
                     gameWatcher = null;
 
+                    if (hostPeerConnection) {
+                        hostPeerConnection.getSenders().forEach(s => s.track?.stop());
+                    }
                     hostPeerConnection?.close();
                     hostPeerConnection = null;
+
                     if ((window as any).__stopNativeCapture) {
                         (window as any).__stopNativeCapture();
                         (window as any).__stopNativeCapture = null;
@@ -464,8 +472,13 @@ function connectHostWebSocket(hostId: string) {
                 clearInterval(gameWatcher);
                 gameWatcher = null;
             }
+
+            if (hostPeerConnection) {
+                hostPeerConnection.getSenders().forEach(s => s.track?.stop());
+            }
             hostPeerConnection?.close();
             hostPeerConnection = null;
+
             if ((window as any).__stopNativeCapture) {
                 (window as any).__stopNativeCapture();
                 (window as any).__stopNativeCapture = null;
@@ -567,7 +580,7 @@ async function startHostStreaming(toClientId: string, payload: any) {
             console.log("[relay] using getDisplayMedia for macOS audio + video");
             stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    frameRate: { max: 30 }
+                    frameRate: { ideal: 60, max: 60 }
                 },
                 audio: {
                     echoCancellation: false,
@@ -607,7 +620,8 @@ async function startHostStreaming(toClientId: string, payload: any) {
                         chromeMediaSourceId: targetSource.id,
                         maxWidth: 1920,
                         maxHeight: 1080,
-                        maxFrameRate: 30,
+                        maxFrameRate: 60,
+                        minFrameRate: 60,
                     },
                 } as any,
             });
@@ -647,7 +661,9 @@ async function startHostStreaming(toClientId: string, payload: any) {
         };
 
         const offer = await hostPeerConnection.createOffer();
+        offer.sdp = tuneSdp(offer.sdp!);
         await hostPeerConnection.setLocalDescription(offer);
+
         hostWsInstance?.send(JSON.stringify({ type: "offer", target: toClientId, payload: offer }));
 
         console.log("[relay] offer sent to", toClientId);
@@ -687,7 +703,9 @@ async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptio
     };
 
     await clientPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
     const answer = await clientPeerConnection.createAnswer();
+    answer.sdp = tuneSdp(answer.sdp!);
     await clientPeerConnection.setLocalDescription(answer);
 
     clientWsInstance?.send(JSON.stringify({
@@ -712,7 +730,7 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     overlay.style.zIndex = "99999";
 
     overlay.innerHTML = `
-        <video id="streamVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; background: #000; cursor: none;"></video>
+        <video id="streamVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain; background: #000; cursor: none;"></video>
         <div class="stream-hud" style="position: absolute; top: 20px; right: 20px;">
             <button class="stream-stop-btn" id="streamStopBtn">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
@@ -1690,7 +1708,7 @@ function renderHostHome() {
     function updateSpotlight(g: LibraryGame) {
         document.getElementById("spotGenre")!.textContent = g.platform;
         document.getElementById("spotTitle")!.textContent = g.name;
-        document.getElementById("spotLastPlayed")!.textContent = `Last played ${g.lastPlayed}`;
+        document.getElementById("spotLastPlayed")!.textContent = `Last played ${g.lastPlayed && g.lastPlayed !== "N/A" ? formatRelativeTime(g.lastPlayed) : "N/A"}`;
     }
 
     row.querySelectorAll<HTMLElement>(".game-item[data-idx]").forEach(card => {
