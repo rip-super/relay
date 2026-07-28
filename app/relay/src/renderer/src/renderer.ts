@@ -707,6 +707,8 @@ async function startHostStreaming(toClientId: string, payload: any) {
 
         hostWsInstance?.send(JSON.stringify({ type: "offer", target: toClientId, payload: offer }));
 
+        (window as any).__stopStats = startStatsOverlay(hostPeerConnection);
+
         console.log("[relay] offer sent to", toClientId);
     } catch (err) {
         console.error("[relay] host stream failed:", err);
@@ -738,6 +740,12 @@ function startStatsOverlay(pc: RTCPeerConnection): () => void {
                 lastFrames = r.framesDecoded; lastTs = now;
                 lastJbDelay = r.jitterBufferDelay; lastJbCount = r.jitterBufferEmittedCount;
             }
+
+            if (r.type === "outbound-rtp" && r.kind === "video") {
+                out += `encoder: ${r.encoderImplementation ?? "?"}\n`;
+                out += `qualityLimit: ${r.qualityLimitationReason ?? "?"}\n`;
+                out += `framesEncoded: ${r.framesEncoded ?? 0}\n`;
+            }
         });
         box.textContent = out || "waiting for video stats...";
     }, 1000);
@@ -755,9 +763,17 @@ async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptio
     };
 
     clientPeerConnection.ontrack = (e) => {
-        console.log("[relay] stream track received. Track enabled:", e.track.enabled, "Track muted:", e.track.muted);
-        const receiver = clientPeerConnection!.getReceivers().find(r => r.track.kind === "video");
-        if (receiver && "playoutDelayHint" in receiver) (receiver as any).playoutDelayHint = 0;
+        clientPeerConnection!.getReceivers().forEach((receiver) => {
+            if (receiver.track.kind !== "video") return;
+            const pin = setInterval(() => {
+                if (receiver.track.readyState !== "live") { clearInterval(pin); return; }
+                try {
+                    (receiver as any).jitterBufferTarget = 0;
+                    (receiver as any).playoutDelayHint = 0;
+                } catch { clearInterval(pin); }
+            }, 15);
+            (window as any).__jbPin = pin;
+        });
         showStreamOverlay(e.streams[0], fromHostId);
         (window as any).__stopStats = startStatsOverlay(clientPeerConnection!);
     };
@@ -903,6 +919,7 @@ function closeStreamOverlay() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
     activeStreamOverlay?.remove();
     activeStreamOverlay = null;
+    clearInterval((window as any).__jbPin);
 }
 
 function resetPlayButton() {
