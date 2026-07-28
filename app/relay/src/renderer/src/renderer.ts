@@ -433,7 +433,10 @@ function formatRelativeTime(iso: string): string {
 }
 
 function tuneSdp(sdp: string): string {
-    return sdp.replace(/a=mid:0\r\n/, 'a=mid:0\r\nb=AS:25000\r\n');
+    let out = sdp.replace(/a=mid:0\r\n/, 'a=mid:0\r\nb=AS:8000\r\n');
+    out = out.replace(/(a=fmtp:\d+ [^\r\n]*profile-level-id[^\r\n]*)/g,
+        '$1;x-google-min-bitrate=2000;x-google-start-bitrate=5000;x-google-max-bitrate=8000');
+    return out;
 }
 
 function teardownHostStream(): void {
@@ -607,6 +610,26 @@ function connectClientWebSocket() {
     };
 }
 
+function preferH264(sdp: string): string {
+    const lines = sdp.split("\r\n");
+    const mLineIndex = lines.findIndex(l => l.startsWith("m=video"));
+    if (mLineIndex === -1) return sdp;
+
+    const h264Pts: string[] = [];
+    lines.forEach(l => {
+        const m = l.match(/^a=rtpmap:(\d+) H264\/90000/i);
+        if (m) h264Pts.push(m[1]);
+    });
+    if (h264Pts.length === 0) return sdp;
+
+    const parts = lines[mLineIndex].split(" ");
+    const header = parts.slice(0, 3);
+    const pts = parts.slice(3);
+    const reordered = [...h264Pts, ...pts.filter(pt => !h264Pts.includes(pt))];
+    lines[mLineIndex] = [...header, ...reordered].join(" ");
+    return lines.join("\r\n");
+}
+
 async function startHostStreaming(toClientId: string, payload: any) {
     console.log("[relay] starting stream to", toClientId);
     hostPeerConnection?.close();
@@ -617,14 +640,8 @@ async function startHostStreaming(toClientId: string, payload: any) {
         if (relay.platform === "darwin") {
             console.log("[relay] using getDisplayMedia for macOS audio + video");
             stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: { ideal: 60, max: 60 }
-                },
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                }
+                video: { frameRate: { max: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
             });
         } else {
             console.log("[relay] using desktopCapturer for Windows");
@@ -656,8 +673,8 @@ async function startHostStreaming(toClientId: string, payload: any) {
                     mandatory: {
                         chromeMediaSource: "desktop",
                         chromeMediaSourceId: targetSource.id,
-                        maxWidth: 1920,
-                        maxHeight: 1080,
+                        maxWidth: 1280,
+                        maxHeight: 720,
                         maxFrameRate: 60,
                         minFrameRate: 60,
                     },
@@ -686,7 +703,7 @@ async function startHostStreaming(toClientId: string, payload: any) {
 
             const params = sender.getParameters();
             if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 12000000;
+            params.encodings[0].maxBitrate = 8000000;
             params.encodings[0].maxFramerate = 60;
             params.encodings[0].scaleResolutionDownBy = 1.0;
             params.degradationPreference = "maintain-framerate";
@@ -702,7 +719,7 @@ async function startHostStreaming(toClientId: string, payload: any) {
         };
 
         const offer = await hostPeerConnection.createOffer();
-        offer.sdp = tuneSdp(offer.sdp!);
+        offer.sdp = preferH264(tuneSdp(offer.sdp!));
         await hostPeerConnection.setLocalDescription(offer);
 
         hostWsInstance?.send(JSON.stringify({ type: "offer", target: toClientId, payload: offer }));
@@ -797,7 +814,7 @@ async function handleClientOffer(fromHostId: string, offer: RTCSessionDescriptio
     await clientPeerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
     const answer = await clientPeerConnection.createAnswer();
-    answer.sdp = tuneSdp(answer.sdp!);
+    answer.sdp = preferH264(tuneSdp(answer.sdp!));
     await clientPeerConnection.setLocalDescription(answer);
 
     clientWsInstance?.send(JSON.stringify({
