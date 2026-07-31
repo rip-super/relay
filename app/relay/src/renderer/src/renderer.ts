@@ -430,6 +430,19 @@ function formatRelativeTime(iso: string): string {
     return `${Math.floor(hours / 24)}d ago`;
 }
 
+function sortByRecency(games: LibraryGame[]): LibraryGame[] {
+    return [...games].sort((a, b) => {
+        const aPlayed = a.lastPlayed && a.lastPlayed !== "N/A";
+        const bPlayed = b.lastPlayed && b.lastPlayed !== "N/A";
+        if (aPlayed && bPlayed) {
+            return new Date(b.lastPlayed).getTime() - new Date(a.lastPlayed).getTime();
+        }
+        if (aPlayed) return -1;
+        if (bPlayed) return 1;
+        return a.name.localeCompare(b.name);
+    });
+}
+
 function tuneSdp(sdp: string): string {
     let out = sdp.replace(/a=mid:0\r\n/, 'a=mid:0\r\nb=AS:8000\r\n');
     out = out.replace(/(a=fmtp:\d+ [^\r\n]*profile-level-id[^\r\n]*)/g,
@@ -1670,7 +1683,7 @@ async function renderHost() {
 }
 
 function renderHostHome() {
-    const games = libraryGames;
+    const games = sortByRecency(libraryGames);
     const recent = games.slice(0, 5);
     const collage = [
         games[0],
@@ -1703,7 +1716,8 @@ function renderHostHome() {
               <div class="spot-title" id="spotTitle">${recent[0]?.name ?? ""}</div>
               <div class="spot-meta">
                 <span id="spotLastPlayed">Last played ${recent[0]?.lastPlayed && recent[0].lastPlayed !== "N/A" ? formatRelativeTime(recent[0].lastPlayed) : "N/A"}</span>
-                ${recent[0]?.sizeOnDisk ? `<span class="spot-dot">·</span><span>${formatBytes(recent[0].sizeOnDisk)}</span>` : ""}
+                <span class="spot-dot" id="spotDot"${recent[0]?.sizeOnDisk ? "" : ` style="display:none"`}>·</span>
+                <span id="spotSize">${recent[0]?.sizeOnDisk ? formatBytes(recent[0].sizeOnDisk) : ""}</span>
               </div>
             </div>
           </div>
@@ -1755,6 +1769,15 @@ function renderHostHome() {
         document.getElementById("spotGenre")!.textContent = g.platform;
         document.getElementById("spotTitle")!.textContent = g.name;
         document.getElementById("spotLastPlayed")!.textContent = `Last played ${g.lastPlayed && g.lastPlayed !== "N/A" ? formatRelativeTime(g.lastPlayed) : "N/A"}`;
+        const sizeEl = document.getElementById("spotSize")!;
+        const dotEl = document.getElementById("spotDot")!;
+        if (g.sizeOnDisk) {
+            sizeEl.textContent = formatBytes(g.sizeOnDisk);
+            dotEl.style.display = "";
+        } else {
+            sizeEl.textContent = "";
+            dotEl.style.display = "none";
+        }
     }
 
     row.querySelectorAll<HTMLElement>(".game-item[data-idx]").forEach(card => {
@@ -1789,7 +1812,7 @@ function renderHostHome() {
 }
 
 function renderHostLibrary() {
-    const games = libraryGames;
+    const games = sortByRecency(libraryGames);
 
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div class="host-wrap">
@@ -2160,7 +2183,7 @@ function renderClientCodeEntry(reason?: "revoked" | "offline" | "code-changed") 
 }
 
 function renderClientHome() {
-    const games = libraryGames;
+    const games = sortByRecency(libraryGames);
     const recent = games.slice(0, 5);
     const collage = [games[0], games[Math.floor(games.length / 2)], games[games.length - 1]].filter(Boolean);
 
@@ -2187,7 +2210,7 @@ function renderClientHome() {
               <div class="spot-genre" id="spotGenre">${recent[0]?.platform ?? ""}</div>
               <div class="spot-title" id="spotTitle">${recent[0]?.name ?? ""}</div>
               <div class="spot-meta">
-                ${recent[0]?.sizeOnDisk ? `<span>${formatBytes(recent[0].sizeOnDisk)}</span>` : ""}
+                <span id="spotSize">${recent[0]?.sizeOnDisk ? formatBytes(recent[0].sizeOnDisk) : ""}</span>
               </div>
             </div>
           </div>
@@ -2239,6 +2262,7 @@ function renderClientHome() {
             setHeroBg(heroUrl(game.appId));
             document.getElementById("spotGenre")!.textContent = game.platform;
             document.getElementById("spotTitle")!.textContent = game.name;
+            document.getElementById("spotSize")!.textContent = game.sizeOnDisk ? formatBytes(game.sizeOnDisk) : "";
         });
         card.addEventListener("click", () => openGameModal(game));
     });
@@ -2253,7 +2277,7 @@ function renderClientHome() {
 }
 
 function renderClientLibrary() {
-    const games = libraryGames;
+    const games = sortByRecency(libraryGames);
 
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div class="host-wrap">
