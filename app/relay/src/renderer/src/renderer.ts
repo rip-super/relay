@@ -884,14 +884,19 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
             payload.deltaX = e.deltaX;
             payload.deltaY = e.deltaY;
         } else if (e instanceof MouseEvent) {
-            const rect = video.getBoundingClientRect();
-            payload.x = (e.clientX - rect.left) / rect.width;
-            payload.y = (e.clientY - rect.top) / rect.height;
-
-            if (e.type === "mousedown" || e.type === "mouseup") {
-                const btn = BUTTON_MAP[e.button];
-                if (!btn) return;
-                payload.button = btn;
+            if (e.type === "mousemove" && document.pointerLockElement === video) {
+                payload.type = "mousemove-rel";
+                payload.dx = e.movementX;
+                payload.dy = e.movementY;
+            } else {
+                const rect = video.getBoundingClientRect();
+                payload.x = (e.clientX - rect.left) / rect.width;
+                payload.y = (e.clientY - rect.top) / rect.height;
+                if (e.type === "mousedown" || e.type === "mouseup") {
+                    const btn = BUTTON_MAP[e.button];
+                    if (!btn) return;
+                    payload.button = btn;
+                }
             }
         } else if (e instanceof KeyboardEvent) {
             payload.key = e.code;
@@ -909,6 +914,9 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
     video.addEventListener("wheel", sendInput, { passive: false, signal: sig });
     video.addEventListener("contextmenu", (e) => e.preventDefault(), { signal: sig });
     video.addEventListener("auxclick", (e) => e.preventDefault(), { signal: sig });
+    video.addEventListener("click", () => {
+        if (!document.pointerLockElement) video.requestPointerLock();
+    }, { signal: sig });
 
     window.addEventListener("keydown", sendInput, { capture: true, signal: sig });
     window.addEventListener("keyup", sendInput, { capture: true, signal: sig });
@@ -2019,8 +2027,8 @@ function openGameModal(g: LibraryGame) {
             const picker = overlay.querySelector<HTMLElement>("#mcPicker")!;
             const payload = {
                 ...g,
-                name: g.name,                              // "Minecraft"
-                launchConfig: variant.launch,              // the chosen instance/version's launch
+                name: g.name,
+                launchConfig: variant.launch,
                 executablePath: variant.launch.exePath ?? "",
                 processHint: variant.processHint,
             };
@@ -2037,7 +2045,7 @@ function openGameModal(g: LibraryGame) {
                     clientWsInstance?.send(JSON.stringify({
                         type: "stream-ended", target: clientHostId, payload: null,
                     }));
-                    resetPlayButton(); // runs mcPickerRestore
+                    resetPlayButton();
                 }
             }, 30000);
 

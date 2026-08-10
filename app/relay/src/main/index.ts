@@ -527,7 +527,7 @@ function scanOfficialJava(): MinecraftVariant[] {
             label: id,
             launcher: "Official (Java)",
             launch: { type: "minecraft-java", versionId: id, gamePath },
-            processHint: mcJavaHint(),
+            processHint: process.platform === "win32" ? "javaw.exe" : "net.minecraft.client",
         });
     }
     out.sort((a, b) => b.label.localeCompare(a.label, undefined, { numeric: true }));
@@ -592,10 +592,10 @@ const KEY_MAP: Record<string, Key> = {
 };
 
 function mapKey(code: string): Key | undefined {
-    if (/^Key[A-Z]$/.test(code)) return Key[code.slice(3) as keyof typeof Key];       // KeyW -> W
-    if (/^Digit[0-9]$/.test(code)) return Key[`Num${code.slice(5)}` as keyof typeof Key];   // Digit1 -> Num1
-    if (/^Numpad[0-9]$/.test(code)) return Key[`NumPad${code.slice(6)}` as keyof typeof Key]; // Numpad1 -> NumPad1
-    if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return Key[code as keyof typeof Key];   // F1..F24
+    if (/^Key[A-Z]$/.test(code)) return Key[code.slice(3) as keyof typeof Key];
+    if (/^Digit[0-9]$/.test(code)) return Key[`Num${code.slice(5)}` as keyof typeof Key];
+    if (/^Numpad[0-9]$/.test(code)) return Key[`NumPad${code.slice(6)}` as keyof typeof Key];
+    if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return Key[code as keyof typeof Key];
     return KEY_MAP[code];
 }
 
@@ -850,6 +850,12 @@ ipcMain.handle("simulate-input", async (_, event) => {
             else if (dy < 0) await mouse.scrollUp(-dy);
             if (dx > 0) await mouse.scrollRight(dx);
             else if (dx < 0) await mouse.scrollLeft(-dx);
+        } else if (event.type === "mousemove-rel") {
+            const pos = await mouse.getPosition();
+            await mouse.setPosition(new Point(
+                Math.round(pos.x + event.dx),
+                Math.round(pos.y + event.dy)
+            ));
         } else if (event.type === "keydown") {
             const key = mapKey(event.key);
             if (key !== undefined) await keyboard.pressKey(key);
