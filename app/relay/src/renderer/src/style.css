@@ -2150,3 +2150,96 @@ body {
 .host-switch-link svg {
     opacity: .7;
 }
+
+.mc-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mc-picker-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: rgba(255, 255, 255, 0.27);
+}
+
+.mc-variant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 176px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.mc-variant-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.mc-variant-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.mc-variant-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+}
+
+.mc-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.mc-group-title {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+.mc-variant {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: "Outfit", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.mc-variant:hover {
+    background: rgba(79, 142, 247, 0.12);
+    border-color: rgba(79, 142, 247, 0.35);
+}
+
+.mc-variant svg {
+    color: var(--accent);
+    flex-shrink: 0;
+    opacity: 0.85;
+}
+
+.mc-variant-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mc-connecting {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.02em;
+    padding: 10px 2px;
+}

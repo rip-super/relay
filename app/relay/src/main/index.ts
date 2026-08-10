@@ -1,10 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, desktopCapturer, session, screen, Tray, Menu, nativeImage } from "electron";
-import { join } from "path";
+import { join, dirname } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { homedir, hostname } from "os";
 import { spawn, exec } from "child_process";
 import { mouse, keyboard, Button, Key, Point } from "@nut-tree-fork/nut-js";
+import { createHash } from "crypto";
+
+import Mclc from "minecraft-launcher-core";
+const { Client } = Mclc as any;
 
 mouse.config.mouseSpeed = 0;
 keyboard.config.autoDelayMs = 0;
@@ -13,7 +17,17 @@ type LaunchConfig =
     | { type: "steam" }
     | { type: "epic"; epicAppName: string }
     | { type: "gog"; exePath: string; workingDir?: string }
-    | { type: "exe"; exePath: string; workingDir?: string };
+    | { type: "exe"; exePath: string; args?: string[]; workingDir?: string }
+    | { type: "uwp"; aumid: string }
+    | { type: "minecraft-java"; versionId: string; gamePath: string };
+
+interface MinecraftVariant {
+    id: string;
+    label: string;
+    launcher: string;
+    launch: LaunchConfig;
+    processHint?: string;
+}
 
 interface ScannedGame {
     appId: string;
@@ -22,7 +36,8 @@ interface ScannedGame {
     executablePath: string;
     launchConfig: LaunchConfig;
     sizeOnDisk: number;
-    source: "steam" | "epic" | "gog";
+    source: "steam" | "epic" | "gog" | "minecraft";
+    minecraftVariants?: MinecraftVariant[];
 }
 
 const configPath = join(app.getPath("userData"), "config.json");
@@ -321,6 +336,237 @@ async function scanGogGames(): Promise<ScannedGame[]> {
     return []; // todo: linux
 }
 
+function mcRoots() {
+    const home = homedir();
+    return {
+        home,
+        appData: process.env["APPDATA"] ?? join(home, "AppData", "Roaming"),
+        localAppData: process.env["LOCALAPPDATA"] ?? join(home, "AppData", "Local"),
+    };
+}
+
+const mcJavaHint = () => (process.platform === "win32" ? "javaw.exe" : "java");
+const firstExisting = (paths: string[]): string => paths.find(existsSync) ?? "";
+
+function scanMmcInstances(
+    instancesDir: string, exePath: string, launcher: string, idPrefix: string
+): MinecraftVariant[] {
+    if (!existsSync(instancesDir) || !exePath) return [];
+    let entries: string[];
+    try { entries = readdirSync(instancesDir); } catch { return []; }
+
+    const out: MinecraftVariant[] = [];
+    for (const dir of entries) {
+        if (dir.startsWith("_")) continue;
+        const cfg = join(instancesDir, dir, "instance.cfg");
+        if (!existsSync(cfg)) continue;
+
+        let name = dir;
+        try {
+            const line = readFileSync(cfg, "utf-8")
+                .split(/\r?\n/).find((l) => l.startsWith("name="));
+            if (line) name = line.slice(5).trim() || dir;
+        } catch { }
+
+        out.push({
+            id: `${idPrefix}:${dir}`,
+            label: name,
+            launcher,
+            launch: { type: "exe", exePath, args: ["--launch", dir], workingDir: dirname(exePath) },
+            processHint: mcJavaHint(),
+        });
+    }
+    return out;
+}
+
+function scanMmcFamily(): MinecraftVariant[] {
+    const { appData, localAppData, home } = mcRoots();
+    const win = process.platform === "win32";
+    const mac = process.platform === "darwin";
+
+    type Fam = { launcher: string; prefix: string; dataRoots: string[]; exe: string };
+    const fams: Fam[] = [
+        {
+            launcher: "Prism Launcher", prefix: "prism",
+            dataRoots: win ? [join(appData, "PrismLauncher")]
+                : mac ? [join(home, "Library", "Application Support", "PrismLauncher")]
+                    : [join(home, ".local", "share", "PrismLauncher"),
+                    join(home, ".var", "app", "org.prismlauncher.PrismLauncher", "data", "PrismLauncher")],
+            exe: win ? firstExisting([
+                join(localAppData, "Programs", "PrismLauncher", "prismlauncher.exe"),
+                join(process.env["ProgramFiles"] ?? "C:\\Program Files", "Prism Launcher", "prismlauncher.exe"),
+            ])
+                : mac ? firstExisting(["/Applications/Prism Launcher.app/Contents/MacOS/prismlauncher"])
+                    : "prismlauncher",
+        },
+        {
+            launcher: "PolyMC", prefix: "polymc",
+            dataRoots: win ? [join(appData, "PolyMC")]
+                : mac ? [join(home, "Library", "Application Support", "PolyMC")]
+                    : [join(home, ".local", "share", "PolyMC")],
+            exe: win ? join(localAppData, "Programs", "PolyMC", "polymc.exe")
+                : mac ? firstExisting(["/Applications/PolyMC.app/Contents/MacOS/polymc"])
+                    : "polymc",
+        },
+        {
+            launcher: "MultiMC", prefix: "multimc",
+            dataRoots: win ? [join(appData, "MultiMC"), "C:\\MultiMC", join(home, "MultiMC"), join(home, "Desktop", "MultiMC")]
+                : mac ? [join(home, "Library", "Application Support", "MultiMC"),
+                    "/Applications/MultiMC.app/Contents/MacOS",
+                    "/Applications/MultiMC.app/Contents"]
+                    : [join(home, ".local", "share", "multimc"), join(home, "MultiMC")],
+            exe: mac ? firstExisting(["/Applications/MultiMC.app/Contents/MacOS/MultiMC"]) : "",
+        },
+    ];
+
+    const out: MinecraftVariant[] = [];
+    for (const f of fams) {
+        const dataRoot = f.dataRoots.find((r) => existsSync(join(r, "instances")));
+        if (!dataRoot) continue;
+        let exe = f.exe;
+        if (!exe) {
+            const local = win ? join(dataRoot, "MultiMC.exe") : join(dataRoot, "MultiMC");
+            exe = existsSync(local) ? local : "";
+        }
+        out.push(...scanMmcInstances(join(dataRoot, "instances"), exe, f.launcher, f.prefix));
+    }
+    return out;
+}
+
+function offlineUuid(name: string): string {
+    const h = createHash("md5").update("OfflinePlayer:" + name).digest();
+    h[6] = (h[6] & 0x0f) | 0x30;
+    h[8] = (h[8] & 0x3f) | 0x80;
+    return h.toString("hex");
+}
+
+function readActiveAccount(gamePath: string): { accessToken: string; uuid: string; name: string } | null {
+    const p = join(gamePath, "launcher_accounts.json");
+    if (!existsSync(p)) return null;
+    try {
+        const j = JSON.parse(readFileSync(p, "utf-8"));
+        const acc = j.activeAccountLocalId
+            ? j.accounts?.[j.activeAccountLocalId]
+            : Object.values(j.accounts ?? {})[0];
+        const prof = (acc as any)?.minecraftProfile;
+        if (!prof?.id) return null;
+        return { accessToken: (acc as any).accessToken ?? "0", uuid: prof.id, name: prof.name ?? "Player" };
+    } catch { return null; }
+}
+
+function readVersionMeta(gamePath: string, versionId: string): { base: string; custom?: string; component?: string } {
+    let base = versionId;
+    let custom: string | undefined;
+    let component: string | undefined;
+    try {
+        const j = JSON.parse(readFileSync(join(gamePath, "versions", versionId, versionId + ".json"), "utf-8"));
+        component = j?.javaVersion?.component;
+        if (j?.inheritsFrom) { base = j.inheritsFrom; custom = versionId; }
+        else base = j?.id ?? versionId;
+    } catch { }
+    return { base, custom, component };
+}
+
+function walkForJava(dir: string, bin: string, depth: number): string[] {
+    if (depth < 0) return [];
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return []; }
+    const found: string[] = [];
+    for (const e of entries) {
+        const full = join(dir, e);
+        let st;
+        try { st = statSync(full); } catch { continue; }
+        if (st.isDirectory()) found.push(...walkForJava(full, bin, depth - 1));
+        else if (e.toLowerCase() === bin) found.push(full);
+    }
+    return found;
+}
+
+function findMinecraftJava(gamePath: string, component?: string): string {
+    const bin = process.platform === "win32" ? "javaw.exe" : "java";
+    const { localAppData, home } = mcRoots();
+    const roots: string[] = [];
+    if (process.platform === "win32") {
+        roots.push(
+            join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Minecraft Launcher", "runtime"),
+            join(localAppData, "Packages", "Microsoft.4297127D64EC6_8wekyb3d8bbwe", "LocalCache", "Local", "runtime"),
+        );
+    } else if (process.platform === "darwin") {
+        roots.push(
+            join(home, "Library", "Application Support", "minecraft", "runtime"),
+            "/Applications/Minecraft.app/Contents",
+        );
+    }
+    roots.push(join(gamePath, "runtime"));
+
+    const candidates: string[] = [];
+    for (const r of roots) if (existsSync(r)) candidates.push(...walkForJava(r, bin, 8));
+    if (component) {
+        const m = candidates.find(p => p.includes(component));
+        if (m) return m;
+    }
+    return candidates[0] ?? bin;
+}
+
+function scanOfficialJava(): MinecraftVariant[] {
+    const { appData, home } = mcRoots();
+    const gamePath = process.platform === "win32" ? join(appData, ".minecraft")
+        : process.platform === "darwin" ? join(home, "Library", "Application Support", "minecraft")
+            : join(home, ".minecraft");
+    const versionsDir = join(gamePath, "versions");
+    if (!existsSync(versionsDir)) return [];
+
+    let dirs: string[];
+    try { dirs = readdirSync(versionsDir); } catch { return []; }
+
+    const out: MinecraftVariant[] = [];
+    for (const id of dirs) {
+        if (!existsSync(join(versionsDir, id, id + ".json"))) continue;
+        out.push({
+            id: `official-java:${id}`,
+            label: id,
+            launcher: "Official (Java)",
+            launch: { type: "minecraft-java", versionId: id, gamePath },
+            processHint: mcJavaHint(),
+        });
+    }
+    out.sort((a, b) => b.label.localeCompare(a.label, undefined, { numeric: true }));
+    return out;
+}
+
+function scanBedrock(): MinecraftVariant[] {
+    if (process.platform !== "win32") return [];
+    const { localAppData } = mcRoots();
+    const pkg = join(localAppData, "Packages", "Microsoft.MinecraftUWP_8wekyb3d8bbwe");
+    if (!existsSync(pkg)) return [];
+    return [{
+        id: "bedrock:default",
+        label: "Bedrock Edition",
+        launcher: "Bedrock",
+        launch: { type: "uwp", aumid: "Microsoft.MinecraftUWP_8wekyb3d8bbwe!App" },
+        processHint: "Minecraft.Windows.exe",
+    }];
+}
+
+function scanMinecraft(): ScannedGame | null {
+    const minecraftVariants = [
+        ...scanOfficialJava(),
+        ...scanMmcFamily(),
+        ...scanBedrock(),
+    ];
+    if (minecraftVariants.length === 0) return null;
+    return {
+        appId: "minecraft",
+        name: "Minecraft",
+        installDir: "",
+        executablePath: "",
+        launchConfig: { type: "exe", exePath: "" },
+        sizeOnDisk: 0,
+        source: "minecraft",
+        minecraftVariants,
+    };
+}
+
 const KEY_MAP: Record<string, Key> = {
     Enter: Key.Enter, NumpadEnter: Key.Enter, Space: Key.Space,
     Backspace: Key.Backspace, Tab: Key.Tab, Escape: Key.Escape,
@@ -376,7 +622,10 @@ ipcMain.handle("scan-games", async () => {
         Promise.resolve(scanEpicGames()),
         scanGogGames(),
     ]);
-    return [...steam, ...epic, ...gog].sort((a, b) => a.name.localeCompare(b.name));
+    const all: ScannedGame[] = [...steam, ...epic, ...gog];
+    const mc = scanMinecraft();
+    if (mc) all.push(mc);
+    return all.sort((a, b) => a.name.localeCompare(b.name));
 });
 
 ipcMain.handle("get-saved-games", () => {
@@ -505,11 +754,41 @@ ipcMain.handle("launch-game", async (_, game: {
         shell.openExternal(`steam://rungameid/${game.appId}`);
     } else if (lc.type === "epic") {
         shell.openExternal(`com.epicgames.launcher://apps/${lc.epicAppName}?action=launch&silent=true`);
+    } else if (lc.type === "uwp") {
+        spawn("explorer.exe", [`shell:AppsFolder\\${lc.aumid}`], { detached: true, stdio: "ignore" }).unref();
+    } else if (lc.type === "minecraft-java") {
+        const acc = readActiveAccount(lc.gamePath);
+        const { base, custom, component } = readVersionMeta(lc.gamePath, lc.versionId);
+        const javaPath = findMinecraftJava(lc.gamePath, component);
+        try {
+            const launcher = new Client();
+            launcher.on("debug", (e: string) => console.log("[mclc]", e));
+            launcher.on("close", (code: number) => console.log("[mclc] exited", code));
+            const p = launcher.launch({
+                authorization: {
+                    access_token: acc?.accessToken ?? "0",
+                    client_token: acc?.uuid ?? "0",
+                    uuid: acc?.uuid ?? offlineUuid("Player"),
+                    name: acc?.name ?? "Player",
+                    user_properties: "{}",
+                    meta: { type: "msa", demo: false },
+                },
+                root: lc.gamePath,
+                javaPath,
+                version: { number: base, type: "release", ...(custom ? { custom } : {}) },
+                memory: { max: "4G", min: "2G" },
+            });
+            Promise.resolve(p).catch((e) => console.error("[relay] mclc launch failed:", e));
+        } catch (e) {
+            console.error("[relay] minecraft-java launch failed:", e);
+        }
     } else if ((lc.type === "gog" || lc.type === "exe") && lc.exePath) {
+        const args = lc.type === "exe" ? (lc.args ?? []) : [];
         if (process.platform === "darwin" && lc.exePath.endsWith(".app")) {
-            spawn("open", [lc.exePath], { detached: true, stdio: "ignore" }).unref();
+            spawn("open", [lc.exePath, ...(args.length ? ["--args", ...args] : [])],
+                { detached: true, stdio: "ignore" }).unref();
         } else {
-            spawn(lc.exePath, [], {
+            spawn(lc.exePath, args, {
                 detached: true, stdio: "ignore",
                 cwd: lc.workingDir || game.installDir,
             }).unref();
@@ -526,10 +805,11 @@ ipcMain.handle("get-desktop-sources", async () => {
     return sources.map(s => ({ id: s.id, name: s.name }));
 });
 
-ipcMain.handle("is-game-running", (_, game: { name: string; executablePath?: string; launchConfig?: { exePath?: string } }) => {
+ipcMain.handle("is-game-running", (_, game: { name: string; executablePath?: string; processHint?: string; launchConfig?: { exePath?: string } }) => {
     return new Promise<boolean>((resolve) => {
+        const hint = game.processHint || "";
         const exePath = game.executablePath || game.launchConfig?.exePath || "";
-        const exeName = exePath ? exePath.split(/[\\/]/).pop() ?? "" : "";
+        const exeName = hint || (exePath ? exePath.split(/[\\/]/).pop() ?? "" : "");
         const name = (game.name ?? "").toLowerCase();
 
         const runExec = (cmd: string) =>

@@ -62,6 +62,14 @@ function gameArt(g: { appId: string; source: string; gridImages?: { portrait: st
     return "";
 }
 
+interface MinecraftVariant {
+    id: string;
+    label: string;
+    launcher: string;
+    launch: { type: string; exePath?: string; epicAppName?: string; workingDir?: string; args?: string[]; aumid?: string; versionId?: string; gamePath?: string };
+    processHint?: string;
+}
+
 interface LibraryGame {
     appId: string;
     name: string;
@@ -72,18 +80,22 @@ interface LibraryGame {
     installDir: string;
     executablePath: string;
     gridImages?: { portrait: string; hero: string; capsule: string };
-    launchConfig: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
+    launchConfig: { type: string; exePath?: string; epicAppName?: string; workingDir?: string; args?: string[]; aumid?: string; versionId?: string; gamePath?: string };
+    minecraftVariants?: MinecraftVariant[];
 }
 
 type ScannedGame = {
     appId: string; name: string; sizeOnDisk: number; source: string;
     installDir?: string; executablePath?: string;
     gridImages?: { portrait: string; hero: string; capsule: string };
-    launchConfig?: { type: string; exePath?: string; epicAppName?: string; workingDir?: string };
+    launchConfig?: { type: string; exePath?: string; epicAppName?: string; workingDir?: string; args?: string[]; aumid?: string; versionId?: string; gamePath?: string };
+    minecraftVariants?: MinecraftVariant[];
 };
 
 async function resolveArtForGames(games: LibraryGame[]): Promise<void> {
-    const need = games.filter(g => g.source !== "steam" && !g.gridImages);
+    const isEmpty = (g: LibraryGame) =>
+        !g.gridImages || (!g.gridImages.portrait && !g.gridImages.hero && !g.gridImages.capsule);
+    const need = games.filter(g => g.source !== "steam" && isEmpty(g));
     await Promise.all(need.map(async (g) => {
         try {
             const res = await fetch(`https://relayapi.sahildash.dev/art/resolve?name=${encodeURIComponent(g.name)}`);
@@ -95,6 +107,7 @@ async function resolveArtForGames(games: LibraryGame[]): Promise<void> {
 function platformLabel(source: string): string {
     if (source === "epic") return "Epic Games";
     if (source === "gog") return "GOG";
+    if (source === "minecraft") return "Minecraft";
     return "Steam";
 }
 
@@ -161,6 +174,34 @@ type DeviceEvent =
     | { type: "device-renamed"; deviceId: string; name: string };
 
 let onDeviceEvent: ((e: DeviceEvent) => void) | null = null;
+
+let mcPickerRestore: (() => void) | null = null;
+
+function escapeHtml(s: string): string {
+    return String(s).replace(/[&<>"']/g, c =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+const MC_PLAY_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/></svg>`;
+
+function mcPickerInner(variants: MinecraftVariant[]): string {
+    const groups = new Map<string, { v: MinecraftVariant; i: number }[]>();
+    variants.forEach((v, i) => {
+        if (!groups.has(v.launcher)) groups.set(v.launcher, []);
+        groups.get(v.launcher)!.push({ v, i });
+    });
+    const groupsHtml = [...groups.entries()].map(([launcher, items]) => `
+        <div class="mc-group">
+            <div class="mc-group-title">${escapeHtml(launcher)}</div>
+            ${items.map(({ v, i }) => `
+                <button class="mc-variant" data-vi="${i}">
+                    ${MC_PLAY_ICON}
+                    <span class="mc-variant-name">${escapeHtml(v.label)}</span>
+                </button>`).join("")}
+        </div>`).join("");
+    return `<div class="mc-picker-label">Choose a version</div>
+            <div class="mc-variant-list">${groupsHtml}</div>`;
+}
 
 const SETTINGS_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <circle cx="12" cy="12" r="2" stroke="#ffffff" fill="#000000"/>
@@ -658,9 +699,11 @@ async function startHostStreaming(toClientId: string, payload: any) {
             console.log("[relay] using desktopCapturer for Windows");
             const sources = await relay.getDesktopSources() as Array<{ id: string; name: string }>;
 
-            let targetSource = sources.find(s =>
-                payload?.name && s.name.toLowerCase().includes(payload.name.toLowerCase())
-            );
+            let targetSource = payload?.source === "minecraft"
+                ? undefined
+                : sources.find(s =>
+                    payload?.name && s.name.toLowerCase().includes(payload.name.toLowerCase())
+                );
 
             if (!targetSource) {
                 console.log("[relay] Game window not found, falling back to screen");
@@ -878,14 +921,7 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
         closeStreamOverlay();
         clientPeerConnection?.close();
         clientPeerConnection = null;
-
-        const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
-        if (playBtn) {
-            playBtn.disabled = false;
-            playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-            </svg> Play`;
-        }
+        resetPlayButton();
     };
 
     document.getElementById("streamStopBtn")!.addEventListener("click", stop);
@@ -901,12 +937,12 @@ function closeStreamOverlay() {
 }
 
 function resetPlayButton() {
+    if (mcPickerRestore) { mcPickerRestore(); mcPickerRestore = null; }
     const playBtn = document.getElementById("playBtn") as HTMLButtonElement | null;
     if (playBtn) {
         playBtn.disabled = false;
         playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-        </svg> Play`;
+            <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/></svg> Play`;
     }
 }
 
@@ -1446,18 +1482,27 @@ async function init() {
             connectHostWebSocket(config.hostId);
             relay.pushLibrary();
         }
+
         const urls: string[] = [];
         savedGames.forEach((g, i) => {
             urls.push(gameArt(g, "portrait"));
             if (i < 8) { urls.push(gameArt(g, "hero")); urls.push(gameArt(g, "capsule")); }
         });
+
         const appEl = document.querySelector<HTMLDivElement>("#app")!;
         appEl.classList.add("page-exit");
         await Promise.all([Promise.all(urls.map(preloadImage)), dismissSplash(stopAnim)]);
+
         renderHostHome();
         void appEl.offsetWidth;
         appEl.classList.remove("page-exit");
+
         rescanLibrary().then(changed => { if (changed) renderHostHome(); });
+
+        resolveArtForGames(libraryGames).then(() => {
+            relay.saveGames(libraryGames);
+            renderHostHome();
+        });
         return;
     }
 
@@ -1763,7 +1808,7 @@ function renderHostHome() {
     const firstCard = row.querySelector<HTMLElement>('[data-idx="0"]')!;
     let expandedCard: HTMLElement = firstCard;
     firstCard.classList.add("js-expanded");
-    if (recent[0]) setHeroBg(heroUrl(recent[0].appId));
+    if (recent[0]) setHeroBg(gameArt(recent[0], "hero"));
 
     function updateSpotlight(g: LibraryGame) {
         document.getElementById("spotGenre")!.textContent = g.platform;
@@ -1901,6 +1946,29 @@ function renderHostLibrary() {
 }
 
 function openGameModal(g: LibraryGame) {
+    const isMc = g.source === "minecraft"
+        && Array.isArray(g.minecraftVariants) && g.minecraftVariants.length > 0;
+
+    let actionHtml: string;
+    if (currentMode !== "client") {
+        actionHtml = `<button class="play-btn" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+                </svg>
+                Client mode only
+            </button>
+            <div class="modal-play-hint">Connect as a client to launch games</div>`;
+    } else if (isMc) {
+        actionHtml = `<div class="mc-picker" id="mcPicker">${mcPickerInner(g.minecraftVariants!)}</div>`;
+    } else {
+        actionHtml = `<button class="play-btn" id="playBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+                </svg>
+                Play
+            </button>`;
+    }
+
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
@@ -1914,11 +1982,11 @@ function openGameModal(g: LibraryGame) {
       </button>
       <div class="game-modal-inner">
         <div class="game-modal-art">
-          <img src="${gameArt(g, "portrait")}" alt="${g.name}" onerror="this.style.display='none'"/>
+          <img src="${gameArt(g, "portrait")}" alt="${escapeHtml(g.name)}" onerror="this.style.display='none'"/>
         </div>
         <div class="game-modal-info">
           <div>
-            <div class="game-modal-title">${g.name}</div>
+            <div class="game-modal-title">${escapeHtml(g.name)}</div>
             <div class="game-modal-genre">${g.platform}</div>
           </div>
           <div class="game-modal-rule"></div>
@@ -1928,31 +1996,15 @@ function openGameModal(g: LibraryGame) {
               <span class="stat-value">${g.lastPlayed && g.lastPlayed !== "N/A" ? formatRelativeTime(g.lastPlayed) : "N/A"}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-label">Install Size</span>
-              <span class="stat-value">${g.sizeOnDisk ? formatBytes(g.sizeOnDisk) : "N/A"}</span>
+              <span class="stat-label">${isMc ? "Versions" : "Install Size"}</span>
+              <span class="stat-value">${isMc ? `${g.minecraftVariants!.length}` : (g.sizeOnDisk ? formatBytes(g.sizeOnDisk) : "N/A")}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Platform</span>
               <span class="stat-value">${g.platform}</span>
             </div>
           </div>
-          <div>
-            ${currentMode === "client"
-            ? `<button class="play-btn" id="playBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-                    </svg>
-                    Play
-                </button>`
-            : `<button class="play-btn" disabled>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-                    </svg>
-                    Client mode only
-                </button>
-                <div class="modal-play-hint">Connect as a client to launch games</div>`
-        }
-          </div>
+          <div>${actionHtml}</div>
         </div>
       </div>
     </div>
@@ -1960,16 +2012,54 @@ function openGameModal(g: LibraryGame) {
 
     document.body.appendChild(overlay);
 
-    if (currentMode === "client") {
+    if (currentMode === "client" && isMc) {
+        const variants = g.minecraftVariants!;
+
+        const launchVariant = (variant: MinecraftVariant) => {
+            const picker = overlay.querySelector<HTMLElement>("#mcPicker")!;
+            const payload = {
+                ...g,
+                name: g.name,                              // "Minecraft"
+                launchConfig: variant.launch,              // the chosen instance/version's launch
+                executablePath: variant.launch.exePath ?? "",
+                processHint: variant.processHint,
+            };
+
+            picker.innerHTML = `<div class="mc-connecting">Launching ${escapeHtml(variant.label)}…</div>`;
+            mcPickerRestore = () => { picker.innerHTML = mcPickerInner(variants); wire(); };
+
+            clientWsInstance?.send(JSON.stringify({
+                type: "connect-request", target: clientHostId, payload,
+            }));
+
+            const timeout = setTimeout(() => {
+                if (!activeStreamOverlay) {
+                    clientWsInstance?.send(JSON.stringify({
+                        type: "stream-ended", target: clientHostId, payload: null,
+                    }));
+                    resetPlayButton(); // runs mcPickerRestore
+                }
+            }, 30000);
+
+            const checkConnected = setInterval(() => {
+                if (activeStreamOverlay) { clearTimeout(timeout); clearInterval(checkConnected); }
+            }, 500);
+        };
+
+        const wire = () => {
+            overlay.querySelectorAll<HTMLElement>(".mc-variant").forEach(btn => {
+                btn.addEventListener("click", () => launchVariant(variants[parseInt(btn.dataset.vi!)]));
+            });
+        };
+        wire();
+    } else if (currentMode === "client") {
         document.getElementById("playBtn")?.addEventListener("click", async () => {
             const btn = document.getElementById("playBtn") as HTMLButtonElement;
             btn.disabled = true;
             btn.textContent = "Connecting to host...";
 
             clientWsInstance?.send(JSON.stringify({
-                type: "connect-request",
-                target: clientHostId,
-                payload: g,
+                type: "connect-request", target: clientHostId, payload: g,
             }));
 
             const timeout = setTimeout(() => {
@@ -1988,6 +2078,7 @@ function openGameModal(g: LibraryGame) {
     }
 
     function close() {
+        mcPickerRestore = null;
         overlay.classList.add("modal-exit");
         setTimeout(() => overlay.remove(), 220);
     }
@@ -2250,7 +2341,7 @@ function renderClientHome() {
     const firstCard = row.querySelector<HTMLElement>('[data-idx="0"]')!;
     let expandedCard: HTMLElement = firstCard;
     firstCard.classList.add("js-expanded");
-    if (recent[0]) setHeroBg(heroUrl(recent[0].appId));
+    if (recent[0]) setHeroBg(gameArt(recent[0], "hero"));
 
     row.querySelectorAll<HTMLElement>(".game-item[data-idx]").forEach(card => {
         const game = recent[parseInt(card.dataset.idx!)];

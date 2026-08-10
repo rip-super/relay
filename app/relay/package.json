@@ -25,7 +25,8 @@
         "@electron-toolkit/preload": "^3.0.2",
         "@electron-toolkit/utils": "^4.0.0",
         "@fontsource/outfit": "^5.2.8",
-        "@nut-tree-fork/nut-js": "^4.2.6"
+        "@nut-tree-fork/nut-js": "^4.2.6",
+        "minecraft-launcher-core": "^3.18.2"
     },
     "devDependencies": {
         "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -40,5 +41,12 @@
         "prettier": "^3.7.4",
         "typescript": "^5.9.3",
         "vite": "^7.2.6"
+    },
+    "allowScripts": {
+        "electron@39.8.10": true,
+        "electron-winstaller@5.4.0": true,
+        "esbuild@0.25.12": true,
+        "esbuild@0.27.7": true,
+        "fsevents@2.3.3": true
     }
 }
