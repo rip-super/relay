@@ -74,6 +74,8 @@ const getLibrary = db.prepare("SELECT library FROM hosts WHERE id = ?");
 const setLibrary = db.prepare("UPDATE hosts SET library = ? WHERE id = ?");
 
 const app = new Hono();
+app.use("*", cors());
+
 const peers = new Map<string, WSContext>();
 const onlineHosts = new Map<string, WSContext>();
 const activeSessions = new Set<string>();
@@ -137,8 +139,6 @@ process.on("SIGTERM", () => {
     wss.close();
     process.exit(0);
 });
-
-app.use("*", cors());
 
 app.post("/hosts/register", (c) => {
     const hostId = randomBytes(4).toString("hex");
