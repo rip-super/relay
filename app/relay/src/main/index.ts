@@ -890,6 +890,23 @@ ipcMain.handle("simulate-input", async (_, event) => {
             else if (dx < 0) await mouse.scrollLeft(-dx);
         } else if (event.type === "mousemove-rel") {
             if (process.platform === "darwin") {
+                const display = screen.getPrimaryDisplay();
+                const w = display.size.width;
+                const h = display.size.height;
+                const MARGIN = 120;
+
+                const pos = await mouse.getPosition();
+                let wx = pos.x;
+                let wy = pos.y;
+                if (pos.x < MARGIN) wx = w - MARGIN * 2;
+                else if (pos.x > w - MARGIN) wx = MARGIN * 2;
+                if (pos.y < MARGIN) wy = h - MARGIN * 2;
+                else if (pos.y > h - MARGIN) wy = MARGIN * 2;
+
+                if (wx !== pos.x || wy !== pos.y) {
+                    await mouse.setPosition(new Point(Math.round(wx), Math.round(wy)));
+                }
+
                 macMouseWrite(event.dx, event.dy);
             } else {
                 const pos = await mouse.getPosition();
