@@ -93,7 +93,11 @@ function winMouseWrite(dx: number, dy: number): void {
             windowsHide: true
         });
 
-        winMouseHelper.on("exit", () => { winMouseHelper = null; });
+        winMouseHelper.on("exit", (code, signal) => {
+            console.log(`[relay] win-mouse-helper exited. Code: ${code}, Signal: ${signal}`);
+            winMouseHelper = null;
+        });
+
         winMouseHelper.on("error", (e) => {
             console.error("[relay] win-mouse-helper spawn failed:", e);
             winMouseHelper = null;
@@ -915,7 +919,7 @@ ipcMain.handle("is-game-running", (_, game: { name: string; executablePath?: str
     });
 });
 
-ipcMain.handle("simulate-input", async (_, event) => {
+ipcMain.on("simulate-input", async (_, event) => {
     try {
         if (event.type === "mousemove") {
             const display = screen.getPrimaryDisplay();
@@ -934,7 +938,7 @@ ipcMain.handle("simulate-input", async (_, event) => {
             if (dx > 0) await mouse.scrollRight(dx);
             else if (dx < 0) await mouse.scrollLeft(-dx);
         } else if (event.type === "mousemove-rel") {
-            if (process.platform === "darwin" || process.platform === "win32") {
+            if (process.platform === "darwin") {
                 const display = screen.getPrimaryDisplay();
                 const w = display.size.width;
                 const h = display.size.height;
@@ -952,12 +956,9 @@ ipcMain.handle("simulate-input", async (_, event) => {
                 if (wx !== pos.x || wy !== pos.y) {
                     await mouse.setPosition(new Point(Math.round(wx), Math.round(wy)));
                 }
-
-                if (process.platform === "darwin") {
-                    macMouseWrite(event.dx, event.dy);
-                } else {
-                    winMouseWrite(event.dx, event.dy);
-                }
+                macMouseWrite(event.dx, event.dy);
+            } else if (process.platform === "win32") {
+                winMouseWrite(event.dx, event.dy);
             } else {
                 const pos = await mouse.getPosition();
                 await mouse.setPosition(new Point(

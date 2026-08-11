@@ -27,7 +27,7 @@ if (process.contextIsolated) {
             getHostname: () => ipcRenderer.invoke("get-hostname"),
             launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
             getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
-            simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
+            simulateInput: (event: any) => ipcRenderer.send("simulate-input", event),
             isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
             updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
         });
@@ -60,7 +60,7 @@ if (process.contextIsolated) {
         getHostname: () => ipcRenderer.invoke("get-hostname"),
         launchGame: (game: object) => ipcRenderer.invoke("launch-game", game),
         getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
-        simulateInput: (event: any) => ipcRenderer.invoke("simulate-input", event),
+        simulateInput: (event: any) => ipcRenderer.send("simulate-input", event),
         isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
         updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
     };

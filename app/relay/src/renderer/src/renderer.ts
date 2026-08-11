@@ -744,9 +744,9 @@ async function startHostStreaming(toClientId: string, payload: any) {
         });
 
         inputChannel.onopen = () => console.log("[relay] Input channel opened");
-        inputChannel.onmessage = async (event) => {
+        inputChannel.onmessage = (event) => {
             const inputEvent = JSON.parse(event.data);
-            await relay.simulateInput(inputEvent);
+            relay.simulateInput(inputEvent);
         };
 
         stream.getTracks().forEach(t => {
