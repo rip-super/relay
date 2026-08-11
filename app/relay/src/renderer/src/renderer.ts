@@ -563,7 +563,7 @@ function connectHostWebSocket(hostId: string) {
                 hostWsInstance?.send(JSON.stringify({
                     type: "stream-ended", target: msg.from, payload: null
                 }));
-            }, 3000);
+            }, 1500);
             gameWatcher = watcher;
             return;
         }
@@ -1841,7 +1841,7 @@ function renderHostHome() {
             expandedCard?.classList.remove("js-expanded");
             card.classList.add("js-expanded");
             expandedCard = card;
-            setHeroBg(heroUrl(game.appId));
+            setHeroBg(gameArt(game, "hero"));
             updateSpotlight(game);
         });
         card.addEventListener("click", () => openGameModal(game));
@@ -2358,7 +2358,7 @@ function renderClientHome() {
             expandedCard?.classList.remove("js-expanded");
             card.classList.add("js-expanded");
             expandedCard = card;
-            setHeroBg(heroUrl(game.appId));
+            setHeroBg(gameArt(game, "hero"));
             document.getElementById("spotGenre")!.textContent = game.platform;
             document.getElementById("spotTitle")!.textContent = game.name;
             document.getElementById("spotSize")!.textContent = game.sizeOnDisk ? formatBytes(game.sizeOnDisk) : "";
