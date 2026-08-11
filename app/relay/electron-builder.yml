@@ -10,8 +10,9 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 extraResources:
-  - from: src/mouse/mouse-helper
-    to: mouse/mouse-helper
+  - from: "src/mouse"
+    to: "mouse"
+    filter: ["**/*"]
 asarUnpack:
   - resources/**
 win:

@@ -689,8 +689,8 @@ async function startHostStreaming(toClientId: string, payload: any) {
     try {
         let stream: MediaStream;
 
-        if (relay.platform === "darwin") {
-            console.log("[relay] using getDisplayMedia for macOS audio + video");
+        if (relay.platform === "darwin" || relay.platform === "win32") {
+            console.log("[relay] using getDisplayMedia for screen + audio capture");
             stream = await navigator.mediaDevices.getDisplayMedia({
                 video: { frameRate: { max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 } },
                 audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }

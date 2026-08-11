@@ -76,6 +76,32 @@ function macMouseWrite(dx: number, dy: number): void {
     macMouseHelper.stdin?.write(`${Math.round(dx)} ${Math.round(dy)}\n`);
 }
 
+function winMouseHelperPath(): string {
+    return app.isPackaged
+        ? join(process.resourcesPath, "mouse", "win-mouse-helper.exe")
+        : join(app.getAppPath(), "src", "mouse", "win-mouse-helper.exe");
+}
+
+let winMouseHelper: ChildProcess | null = null;
+
+function winMouseWrite(dx: number, dy: number): void {
+    if (process.platform !== "win32") return;
+    if (!winMouseHelper) {
+        const exe = winMouseHelperPath();
+        winMouseHelper = spawn(exe, [], {
+            stdio: ["pipe", "ignore", "ignore"],
+            windowsHide: true
+        });
+
+        winMouseHelper.on("exit", () => { winMouseHelper = null; });
+        winMouseHelper.on("error", (e) => {
+            console.error("[relay] win-mouse-helper spawn failed:", e);
+            winMouseHelper = null;
+        });
+    }
+    winMouseHelper.stdin?.write(`${Math.round(dx)} ${Math.round(dy)}\n`);
+}
+
 function findSteamRoots(): string[] {
     const home = homedir();
     const candidates: string[] = [];
@@ -908,6 +934,8 @@ ipcMain.handle("simulate-input", async (_, event) => {
                 }
 
                 macMouseWrite(event.dx, event.dy);
+            } else if (process.platform === "win32") {
+                winMouseWrite(event.dx, event.dy);
             } else {
                 const pos = await mouse.getPosition();
                 await mouse.setPosition(new Point(
@@ -1061,4 +1089,10 @@ app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => { macMouseHelper?.stdin?.end(); macMouseHelper?.kill(); });
+app.on("before-quit", () => {
+    macMouseHelper?.stdin?.end();
+    macMouseHelper?.kill();
+
+    winMouseHelper?.stdin?.end();
+    winMouseHelper?.kill();
+});
