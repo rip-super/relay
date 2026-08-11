@@ -870,6 +870,25 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
 
     const BUTTON_MAP: Record<number, string> = { 0: "LEFT", 1: "MIDDLE", 2: "RIGHT" };
 
+    let pendingDx = 0;
+    let pendingDy = 0;
+    let flushScheduled = false;
+
+    function flushPendingInput() {
+        if (inputChannel && inputChannel.readyState === "open") {
+            if (pendingDx !== 0 || pendingDy !== 0) {
+                inputChannel.send(JSON.stringify({
+                    type: "mousemove-rel",
+                    dx: pendingDx,
+                    dy: pendingDy
+                }));
+                pendingDx = 0;
+                pendingDy = 0;
+            }
+        }
+        flushScheduled = false;
+    }
+
     const sendInput = (e: Event) => {
         if (e instanceof KeyboardEvent || e instanceof MouseEvent || e instanceof WheelEvent) {
             e.preventDefault();
@@ -883,11 +902,16 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
         if (e instanceof WheelEvent) {
             payload.deltaX = e.deltaX;
             payload.deltaY = e.deltaY;
+            inputChannel.send(JSON.stringify(payload));
         } else if (e instanceof MouseEvent) {
             if (e.type === "mousemove" && document.pointerLockElement === video) {
-                payload.type = "mousemove-rel";
-                payload.dx = e.movementX;
-                payload.dy = e.movementY;
+                pendingDx += e.movementX;
+                pendingDy += e.movementY;
+
+                if (!flushScheduled) {
+                    flushScheduled = true;
+                    requestAnimationFrame(flushPendingInput);
+                }
             } else {
                 const rect = video.getBoundingClientRect();
                 payload.x = (e.clientX - rect.left) / rect.width;
@@ -897,12 +921,12 @@ function showStreamOverlay(stream: MediaStream, hostId: string) {
                     if (!btn) return;
                     payload.button = btn;
                 }
+                inputChannel.send(JSON.stringify(payload));
             }
         } else if (e instanceof KeyboardEvent) {
             payload.key = e.code;
+            inputChannel.send(JSON.stringify(payload));
         }
-
-        inputChannel.send(JSON.stringify(payload));
     };
 
     streamInputAbort = new AbortController();

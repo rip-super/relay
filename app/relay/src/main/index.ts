@@ -102,8 +102,13 @@ function winMouseWrite(dx: number, dy: number): void {
             console.error("[relay] win-mouse-helper spawn failed:", e);
             winMouseHelper = null;
         });
+
+        winMouseHelper.stdin?.on("error", () => { winMouseHelper = null; });
     }
-    winMouseHelper.stdin?.write(`${Math.round(dx)} ${Math.round(dy)}\n`);
+
+    if (winMouseHelper.stdin && !winMouseHelper.stdin.destroyed) {
+        winMouseHelper.stdin.write(`${Math.round(dx)} ${Math.round(dy)}\n`);
+    }
 }
 
 function findSteamRoots(): string[] {
