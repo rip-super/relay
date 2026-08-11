@@ -822,10 +822,25 @@ ipcMain.handle("launch-game", async (_, game: {
         const acc = readActiveAccount(lc.gamePath);
         const { base, custom, component } = readVersionMeta(lc.gamePath, lc.versionId);
         const javaPath = findMinecraftJava(lc.gamePath, component);
+
+        const optionsPath = join(lc.gamePath, "options.txt");
+        try {
+            let opts = existsSync(optionsPath) ? readFileSync(optionsPath, "utf-8") : "";
+            if (opts.includes("fullscreen:")) {
+                opts = opts.replace(/fullscreen:\w+/g, "fullscreen:false");
+            } else {
+                opts += "\nfullscreen:false";
+            }
+            writeFileSync(optionsPath, opts);
+        } catch { }
+
         try {
             const launcher = new Client();
             launcher.on("debug", (e: string) => console.log("[mclc]", e));
             launcher.on("close", (code: number) => console.log("[mclc] exited", code));
+
+            const features = { has_custom_resolution: false, is_demo: false };
+
             const p = launcher.launch({
                 authorization: {
                     access_token: acc?.accessToken ?? "0",
@@ -839,7 +854,11 @@ ipcMain.handle("launch-game", async (_, game: {
                 javaPath,
                 version: { number: base, type: "release", ...(custom ? { custom } : {}) },
                 memory: { max: "4G", min: "2G" },
+                overrides: {
+                    features: features
+                }
             });
+
             Promise.resolve(p)
                 .then((proc: any) => { if (proc?.pid) focusMcByPid(proc.pid); })
                 .catch((e) => console.error("[relay] mclc launch failed:", e));
@@ -915,7 +934,7 @@ ipcMain.handle("simulate-input", async (_, event) => {
             if (dx > 0) await mouse.scrollRight(dx);
             else if (dx < 0) await mouse.scrollLeft(-dx);
         } else if (event.type === "mousemove-rel") {
-            if (process.platform === "darwin") {
+            if (process.platform === "darwin" || process.platform === "win32") {
                 const display = screen.getPrimaryDisplay();
                 const w = display.size.width;
                 const h = display.size.height;
@@ -924,6 +943,7 @@ ipcMain.handle("simulate-input", async (_, event) => {
                 const pos = await mouse.getPosition();
                 let wx = pos.x;
                 let wy = pos.y;
+
                 if (pos.x < MARGIN) wx = w - MARGIN * 2;
                 else if (pos.x > w - MARGIN) wx = MARGIN * 2;
                 if (pos.y < MARGIN) wy = h - MARGIN * 2;
@@ -933,9 +953,11 @@ ipcMain.handle("simulate-input", async (_, event) => {
                     await mouse.setPosition(new Point(Math.round(wx), Math.round(wy)));
                 }
 
-                macMouseWrite(event.dx, event.dy);
-            } else if (process.platform === "win32") {
-                winMouseWrite(event.dx, event.dy);
+                if (process.platform === "darwin") {
+                    macMouseWrite(event.dx, event.dy);
+                } else {
+                    winMouseWrite(event.dx, event.dy);
+                }
             } else {
                 const pos = await mouse.getPosition();
                 await mouse.setPosition(new Point(
