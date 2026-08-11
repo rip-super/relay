@@ -12,9 +12,12 @@ namespace WinMouseHelper {
             public IntPtr dwExtraInfo;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Explicit)]
         struct INPUT {
+            [FieldOffset(0)]
             public uint type;
+
+            [FieldOffset(8)]
             public MOUSEINPUT mi;
         }
 
@@ -24,7 +27,7 @@ namespace WinMouseHelper {
         static void Main(string[] args) {
             string line;
             int dx, dy;
-            
+
             while ((line = Console.In.ReadLine()) != null) {
                 var parts = line.Split(' ');
                 if (parts.Length == 2 && int.TryParse(parts[0], out dx) && int.TryParse(parts[1], out dy)) {
@@ -35,7 +38,7 @@ namespace WinMouseHelper {
                     inputs[0].mi.mouseData = 0;
                     inputs[0].mi.dwFlags = 0x0001;
                     inputs[0].mi.dwExtraInfo = IntPtr.Zero;
-                    
+
                     SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
                 }
             }
