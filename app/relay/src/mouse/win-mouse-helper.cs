@@ -23,9 +23,11 @@ namespace WinMouseHelper {
 
         static void Main(string[] args) {
             string line;
+            int dx, dy;
+            
             while ((line = Console.In.ReadLine()) != null) {
                 var parts = line.Split(' ');
-                if (parts.Length == 2 && int.TryParse(parts[0], out int dx) && int.TryParse(parts[1], out int dy)) {
+                if (parts.Length == 2 && int.TryParse(parts[0], out dx) && int.TryParse(parts[1], out dy)) {
                     INPUT[] inputs = new INPUT[1];
                     inputs[0].type = 0;
                     inputs[0].mi.dx = dx;
