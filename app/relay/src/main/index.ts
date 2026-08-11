@@ -567,6 +567,18 @@ function scanMinecraft(): ScannedGame | null {
     };
 }
 
+function focusMcByPid(pid: number) {
+    if (process.platform !== "darwin" || !pid) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+        exec(
+            `osascript -e 'tell application "System Events" to set frontmost of (first process whose unix id is ${pid}) to true'`,
+            () => { }
+        );
+        if (++tries >= 10) clearInterval(timer);
+    }, 1500);
+}
+
 const KEY_MAP: Record<string, Key> = {
     Enter: Key.Enter, NumpadEnter: Key.Enter, Space: Key.Space,
     Backspace: Key.Backspace, Tab: Key.Tab, Escape: Key.Escape,
@@ -778,7 +790,9 @@ ipcMain.handle("launch-game", async (_, game: {
                 version: { number: base, type: "release", ...(custom ? { custom } : {}) },
                 memory: { max: "4G", min: "2G" },
             });
-            Promise.resolve(p).catch((e) => console.error("[relay] mclc launch failed:", e));
+            Promise.resolve(p)
+                .then((proc: any) => { if (proc?.pid) focusMcByPid(proc.pid); })
+                .catch((e) => console.error("[relay] mclc launch failed:", e));
         } catch (e) {
             console.error("[relay] minecraft-java launch failed:", e);
         }
