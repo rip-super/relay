@@ -3,9 +3,10 @@ import { join, dirname } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "fs";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { homedir, hostname } from "os";
-import { spawn, exec } from "child_process";
+import { spawn, ChildProcess, exec } from "child_process";
 import { mouse, keyboard, Button, Key, Point } from "@nut-tree-fork/nut-js";
 import { createHash } from "crypto";
+import { chmodSync } from "fs";
 
 import Mclc from "minecraft-launcher-core";
 const { Client } = Mclc as any;
@@ -50,6 +51,29 @@ function getConfig(): { mode: "host" | "client" } | null {
 function saveConfig(mode: "host" | "client"): void {
     const existing = (getConfig() as any) ?? {};
     writeFileSync(configPath, JSON.stringify({ ...existing, mode }));
+}
+
+function macHelperPath(): string {
+    return app.isPackaged
+        ? join(process.resourcesPath, "mouse", "mouse-helper")
+        : join(app.getAppPath(), "src", "mouse", "mouse-helper");
+}
+
+let macMouseHelper: ChildProcess | null = null;
+
+function macMouseWrite(dx: number, dy: number): void {
+    if (process.platform !== "darwin") return;
+    if (!macMouseHelper) {
+        const bin = macHelperPath();
+        try { chmodSync(bin, 0o755); } catch { }
+        macMouseHelper = spawn(bin, [], { stdio: ["pipe", "ignore", "ignore"] });
+        macMouseHelper.on("exit", () => { macMouseHelper = null; });
+        macMouseHelper.on("error", (e) => {
+            console.error("[relay] mouse-helper spawn failed:", e);
+            macMouseHelper = null;
+        });
+    }
+    macMouseHelper.stdin?.write(`${Math.round(dx)} ${Math.round(dy)}\n`);
 }
 
 function findSteamRoots(): string[] {
@@ -865,11 +889,15 @@ ipcMain.handle("simulate-input", async (_, event) => {
             if (dx > 0) await mouse.scrollRight(dx);
             else if (dx < 0) await mouse.scrollLeft(-dx);
         } else if (event.type === "mousemove-rel") {
-            const pos = await mouse.getPosition();
-            await mouse.setPosition(new Point(
-                Math.round(pos.x + event.dx),
-                Math.round(pos.y + event.dy)
-            ));
+            if (process.platform === "darwin") {
+                macMouseWrite(event.dx, event.dy);
+            } else {
+                const pos = await mouse.getPosition();
+                await mouse.setPosition(new Point(
+                    Math.round(pos.x + event.dx),
+                    Math.round(pos.y + event.dy)
+                ));
+            }
         } else if (event.type === "keydown") {
             const key = mapKey(event.key);
             if (key !== undefined) await keyboard.pressKey(key);
@@ -1015,3 +1043,5 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
 });
+
+app.on("before-quit", () => { macMouseHelper?.stdin?.end(); macMouseHelper?.kill(); });
