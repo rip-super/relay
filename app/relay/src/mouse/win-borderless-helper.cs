@@ -17,6 +17,9 @@ class BorderlessHelper {
     [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")] static extern bool GetMonitorInfo(IntPtr h, ref MONITORINFO mi);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string win);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string cls, string win);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
 
     delegate bool EnumWindowsProc(IntPtr h, IntPtr p);
 
@@ -24,6 +27,7 @@ class BorderlessHelper {
     const long WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000, WS_BORDER = 0x00800000, WS_DLGFRAME = 0x00400000;
     const uint MONITOR_DEFAULTTONEAREST = 2;
     const uint SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020, SWP_SHOWWINDOW = 0x0040;
+    const int SW_HIDE = 0, SW_SHOW = 5;
     const int GAP = 1;
 
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
@@ -81,25 +85,50 @@ class BorderlessHelper {
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     }
 
+    static void SetTaskbar(bool show) {
+        int cmd = show ? SW_SHOW : SW_HIDE;
+        IntPtr tb = FindWindow("Shell_TrayWnd", null);
+        if (tb != IntPtr.Zero) ShowWindow(tb, cmd);
+        IntPtr sec = IntPtr.Zero;
+        while ((sec = FindWindowEx(IntPtr.Zero, sec, "Shell_SecondaryTrayWnd", null)) != IntPtr.Zero)
+            ShowWindow(sec, cmd);
+    }
+
     static void Main(string[] args) {
         if (args.Length >= 1) exeNeedle = args[0].Trim();
         if (args.Length >= 2) titleNeedle = args[1].Trim().ToLowerInvariant();
 
-        int elapsed = 0, interval = 500, max = 60000;
-        bool everFound = false;
-        while (elapsed < max) {
-            IntPtr h = FindGameWindow();
-            if (h != IntPtr.Zero && IsWindow(h)) {
-                if (!AlreadyBorderlessFullscreen(h)) {
-                    MakeBorderless(h);
-                    if (!everFound) { Console.WriteLine("APPLIED borderless to window"); everFound = true; }
-                } else if (!everFound) {
-                    Console.WriteLine("WINDOW already borderless-fullscreen"); everFound = true;
+        bool taskbarHidden = false;
+        AppDomain.CurrentDomain.ProcessExit += (s, e) => { if (taskbarHidden) SetTaskbar(true); };
+
+        try {
+            int interval = 500;
+            int waitedForWindow = 0, maxWait = 60000, missing = 0;
+            bool appeared = false;
+
+            while (true) {
+                IntPtr h = FindGameWindow();
+                if (h != IntPtr.Zero && IsWindow(h)) {
+                    appeared = true; missing = 0;
+                    if (!AlreadyBorderlessFullscreen(h)) MakeBorderless(h);
+                    if (!taskbarHidden) {
+                        SetTaskbar(false); taskbarHidden = true;
+                        Console.WriteLine("APPLIED borderless + taskbar hidden");
+                    }
+                } else if (!appeared) {
+                    waitedForWindow += interval;
+                    if (waitedForWindow >= maxWait) {
+                        Console.WriteLine("NOWINDOW no normal window found - likely true exclusive (needs injection)");
+                        break;
+                    }
+                } else if (++missing >= 4) {
+                    Console.WriteLine("Game window closed, restoring taskbar.");
+                    break;
                 }
+                Thread.Sleep(interval);
             }
-            Thread.Sleep(interval);
-            elapsed += interval;
+        } finally {
+            if (taskbarHidden) SetTaskbar(true);
         }
-        if (!everFound) Console.WriteLine("NOWINDOW no normal window found - likely true exclusive (needs injection)");
     }
 }
