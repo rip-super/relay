@@ -64,7 +64,7 @@ npm run dev:client
 
 Relay ships small native helper binaries alongside the app (in `src/mouse/`, bundled into `resources/mouse/` on build):
 
-* `win-mouse-helper.exe` / `mouse-helper` (macOS) - raw relative mouse motion for in-game camera control.
+* `win-mouse-helper.exe` / `mac-mouse-helper` (macOS) - raw relative mouse motion for in-game camera control.
 * `win-borderless-helper.exe` (Windows) - the borderless-fullscreen coercion described above.
 
 If you modify a helper's source, recompile it before building. For example, the Windows borderless helper:
