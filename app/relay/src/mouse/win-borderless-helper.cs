@@ -24,6 +24,7 @@ class BorderlessHelper {
     const long WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000, WS_BORDER = 0x00800000, WS_DLGFRAME = 0x00400000;
     const uint MONITOR_DEFAULTTONEAREST = 2;
     const uint SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020, SWP_SHOWWINDOW = 0x0040;
+    const int GAP = 1;
 
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
     [StructLayout(LayoutKind.Sequential)] struct MONITORINFO { public int cbSize; public RECT rcMonitor, rcWork; public uint dwFlags; }
@@ -64,7 +65,8 @@ class BorderlessHelper {
         var mi = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
         if (!GetMonitorInfo(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), ref mi)) return false;
         return r.left == mi.rcMonitor.left && r.top == mi.rcMonitor.top &&
-               r.right == mi.rcMonitor.right && r.bottom == mi.rcMonitor.bottom;
+               r.right == mi.rcMonitor.right &&
+               r.bottom == mi.rcMonitor.bottom - GAP;
     }
 
     static void MakeBorderless(IntPtr h) {
@@ -74,7 +76,8 @@ class BorderlessHelper {
         var mi = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
         if (!GetMonitorInfo(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), ref mi)) return;
         SetWindowPos(h, IntPtr.Zero, mi.rcMonitor.left, mi.rcMonitor.top,
-            mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top,
+            mi.rcMonitor.right - mi.rcMonitor.left,
+            (mi.rcMonitor.bottom - mi.rcMonitor.top) - GAP,
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
     }
 
