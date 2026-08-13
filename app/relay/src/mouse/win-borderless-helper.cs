@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -8,18 +9,21 @@ class BorderlessHelper {
     [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc cb, IntPtr p);
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr h);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)] static extern IntPtr GetWindowLongPtr(IntPtr h, int i);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] static extern IntPtr SetWindowLongPtr(IntPtr h, int i, IntPtr v);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")] static extern bool GetMonitorInfo(IntPtr h, ref MONITORINFO mi);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string win);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string cls, string win);
-    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool SystemParametersInfo(uint action, uint param, string vparam, uint winini);
 
     delegate bool EnumWindowsProc(IntPtr h, IntPtr p);
 
@@ -27,7 +31,9 @@ class BorderlessHelper {
     const long WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000, WS_BORDER = 0x00800000, WS_DLGFRAME = 0x00400000;
     const uint MONITOR_DEFAULTTONEAREST = 2;
     const uint SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020, SWP_SHOWWINDOW = 0x0040;
-    const int SW_HIDE = 0, SW_SHOW = 5;
+    const int SW_HIDE = 0, SW_SHOW = 5, SW_RESTORE = 9;
+    const uint SPI_GETDESKWALLPAPER = 0x0073, SPI_SETDESKWALLPAPER = 0x0014;
+    const uint SPIF_UPDATEINIFILE = 0x01, SPIF_SENDCHANGE = 0x02;
     const int GAP = 1;
 
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
@@ -35,6 +41,8 @@ class BorderlessHelper {
 
     static string exeNeedle = "", titleNeedle = "";
     static IntPtr found = IntPtr.Zero;
+    static string savedWallpaper = "";
+    static object shellApp = null;
 
     static bool MatchesProcess(IntPtr h) {
         if (exeNeedle == "") return false;
@@ -74,6 +82,7 @@ class BorderlessHelper {
     }
 
     static void MakeBorderless(IntPtr h) {
+        if (IsIconic(h)) ShowWindow(h, SW_RESTORE);
         long style = (long)GetWindowLongPtr(h, GWL_STYLE);
         long stripped = style & ~(WS_CAPTION | WS_THICKFRAME | WS_BORDER | WS_DLGFRAME);
         if (stripped != style) SetWindowLongPtr(h, GWL_STYLE, (IntPtr)stripped);
@@ -94,12 +103,59 @@ class BorderlessHelper {
             ShowWindow(sec, cmd);
     }
 
+    static void SetBlackWallpaper() {
+        var sb = new StringBuilder(600);
+        if (SystemParametersInfo(SPI_GETDESKWALLPAPER, (uint)sb.Capacity, sb, 0))
+            savedWallpaper = sb.ToString();
+        try {
+            string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "relay_black.bmp");
+            using (var bmp = new System.Drawing.Bitmap(16, 16))
+            using (var g = System.Drawing.Graphics.FromImage(bmp)) {
+                g.Clear(System.Drawing.Color.Black);
+                bmp.Save(path, System.Drawing.Imaging.ImageFormat.Bmp);
+            }
+            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+        } catch { }
+    }
+
+    static void RestoreWallpaper() {
+        if (savedWallpaper != "")
+            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, savedWallpaper, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    }
+
+    static object ShellApp() {
+        if (shellApp == null) {
+            Type t = Type.GetTypeFromProgID("Shell.Application");
+            if (t != null) shellApp = Activator.CreateInstance(t);
+        }
+        return shellApp;
+    }
+
+    static void InvokeShell(string method) {
+        try {
+            object s = ShellApp();
+            if (s != null) s.GetType().InvokeMember(method, BindingFlags.InvokeMethod, null, s, null);
+        } catch { }
+    }
+
+    static void MinimizeAll() { InvokeShell("MinimizeAll"); }
+    static void UndoMinimizeAll() { InvokeShell("UndoMinimizeALL"); }
+
+    [STAThread]
     static void Main(string[] args) {
         if (args.Length >= 1) exeNeedle = args[0].Trim();
         if (args.Length >= 2) titleNeedle = args[1].Trim().ToLowerInvariant();
 
-        bool taskbarHidden = false;
-        AppDomain.CurrentDomain.ProcessExit += (s, e) => { if (taskbarHidden) SetTaskbar(true); };
+        bool taskbarHidden = false, wallpaperChanged = false, minimized = false;
+
+        MinimizeAll();
+        minimized = true;
+
+        AppDomain.CurrentDomain.ProcessExit += (s, e) => {
+            if (taskbarHidden) SetTaskbar(true);
+            if (wallpaperChanged) RestoreWallpaper();
+            if (minimized) UndoMinimizeAll();
+        };
 
         try {
             int interval = 500;
@@ -113,7 +169,8 @@ class BorderlessHelper {
                     if (!AlreadyBorderlessFullscreen(h)) MakeBorderless(h);
                     if (!taskbarHidden) {
                         SetTaskbar(false); taskbarHidden = true;
-                        Console.WriteLine("APPLIED borderless + taskbar hidden");
+                        SetBlackWallpaper(); wallpaperChanged = true;
+                        Console.WriteLine("APPLIED borderless + taskbar hidden + black wallpaper");
                     }
                 } else if (!appeared) {
                     waitedForWindow += interval;
@@ -122,13 +179,15 @@ class BorderlessHelper {
                         break;
                     }
                 } else if (++missing >= 4) {
-                    Console.WriteLine("Game window closed, restoring taskbar.");
+                    Console.WriteLine("Game window closed, restoring.");
                     break;
                 }
                 Thread.Sleep(interval);
             }
         } finally {
             if (taskbarHidden) SetTaskbar(true);
+            if (wallpaperChanged) RestoreWallpaper();
+            if (minimized) UndoMinimizeAll();
         }
     }
 }
