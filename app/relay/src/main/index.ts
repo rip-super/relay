@@ -111,6 +111,36 @@ function winMouseWrite(dx: number, dy: number): void {
     }
 }
 
+function winBorderlessHelperPath(): string {
+    return app.isPackaged
+        ? join(process.resourcesPath, "mouse", "win-borderless-helper.exe")
+        : join(app.getAppPath(), "src", "mouse", "win-borderless-helper.exe");
+}
+
+function forceBorderless(game: { name?: string; executablePath?: string; processHint?: string; launchConfig?: any }): void {
+    if (process.platform !== "win32") return;
+
+    const hint = game.processHint || "";
+    const exePath = game.executablePath || game.launchConfig?.exePath || "";
+    const exeName = (hint || (exePath ? exePath.split(/[\\/]/).pop() ?? "" : "")).replace(/\.exe$/i, "");
+    const title = game.name || "";
+    if (!exeName && !title) return;
+
+    try {
+        const proc = spawn(winBorderlessHelperPath(), [exeName, title], {
+            windowsHide: true, stdio: ["ignore", "pipe", "ignore"],
+        });
+        proc.stdout?.on("data", d => {
+            const line = d.toString().trim();
+            if (line) console.log(`[borderless] ${title || exeName}: ${line}`);
+        });
+        proc.on("error", e => console.error("[relay] borderless-helper spawn failed:", e));
+        proc.unref();
+    } catch (e) {
+        console.error("[relay] borderless-helper failed:", e);
+    }
+}
+
 function findSteamRoots(): string[] {
     const home = homedir();
     const candidates: string[] = [];
@@ -886,6 +916,8 @@ ipcMain.handle("launch-game", async (_, game: {
             }).unref();
         }
     }
+
+    forceBorderless(game as any);
 });
 
 ipcMain.handle("get-desktop-sources", async () => {
@@ -1080,12 +1112,10 @@ function createWindow(): void {
 app.commandLine.appendSwitch("enable-features", [
     "MacLoopbackAudioForScreenShare",
     "PlatformHEVCDecoderSupport",
-    "AllowWgcDesktopCapturer",
     "AllowWgcScreenCapturer",
     "AllowWgcWindowCapturer",
-    "AllowWgcZeroHz"
 ].join(","));
-app.commandLine.appendSwitch("disable-features", "WebRtcHideLocalIpsWithMdns");
+app.commandLine.appendSwitch("disable-features", "WebRtcHideLocalIpsWithMdns,AllowWgcZeroHz");
 app.commandLine.appendSwitch("max-gum-fps", "60");
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("enable-gpu-rasterization");
