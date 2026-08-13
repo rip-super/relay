@@ -146,6 +146,8 @@ let gameWatcher: NodeJS.Timeout | null = null;
 
 let streamInputAbort: AbortController | null = null;
 
+let stopFreezeWatch: (() => void) | null = null;
+
 const RTC_CONFIG: RTCConfiguration = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
@@ -491,7 +493,64 @@ function tuneSdp(sdp: string): string {
     return out;
 }
 
+function watchForCaptureFreeze(
+    stream: MediaStream,
+    payload: any,
+    onFrozen: () => void
+): () => void {
+    const track = stream.getVideoTracks()[0];
+    let fired = false;
+
+    const trigger = async () => {
+        if (fired) return;
+        if (await relay.isGameRunning(payload)) {
+            fired = true;
+            onFrozen();
+        }
+    };
+
+    const onMute = () => { void trigger(); };
+    track.addEventListener("mute", onMute);
+
+    const video = document.createElement("video");
+    video.muted = true;
+    video.srcObject = new MediaStream([track]);
+    Object.assign(video.style, {
+        position: "fixed", width: "1px", height: "1px",
+        opacity: "0", pointerEvents: "none", left: "0", top: "0",
+    });
+    document.body.appendChild(video);
+    video.play().catch(() => { });
+
+    let lastFrames = -1;
+    let lastAdvance = performance.now();
+
+    const hasRVFC = "requestVideoFrameCallback" in video;
+    const onFrame = (_now: number, meta: any) => {
+        if (meta.presentedFrames !== lastFrames) {
+            lastFrames = meta.presentedFrames;
+            lastAdvance = performance.now();
+        }
+        if (hasRVFC && !fired) (video as any).requestVideoFrameCallback(onFrame);
+    };
+    if (hasRVFC) (video as any).requestVideoFrameCallback(onFrame);
+
+    const poll = setInterval(() => {
+        if (fired) return;
+        const stalledMs = performance.now() - lastAdvance;
+        if (stalledMs > 3500 && track.readyState === "live") void trigger();
+    }, 1000);
+
+    return () => {
+        clearInterval(poll);
+        track.removeEventListener("mute", onMute);
+        video.srcObject = null;
+        video.remove();
+    };
+}
+
 function teardownHostStream(): void {
+    if (stopFreezeWatch) { stopFreezeWatch(); stopFreezeWatch = null; }
     if (gameWatcher) {
         clearInterval(gameWatcher);
         gameWatcher = null;
@@ -733,6 +792,15 @@ async function startHostStreaming(toClientId: string, payload: any) {
                         minFrameRate: 60,
                     },
                 } as any,
+            });
+        }
+
+        if (relay.platform === "win32") {
+            stopFreezeWatch?.();
+            stopFreezeWatch = watchForCaptureFreeze(stream, payload, async () => {
+                console.log("[relay] capture frozen — attempting Alt+Enter recovery");
+                await relay.sendAltEnter();
+                setTimeout(() => relay.reshapeWindow(payload), 2500);
             });
         }
 

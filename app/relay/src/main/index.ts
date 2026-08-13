@@ -700,6 +700,23 @@ function mapKey(code: string): Key | undefined {
     return KEY_MAP[code];
 }
 
+function detectEngineArgs(installDir: string): string[] {
+    if (!installDir || !existsSync(installDir)) return [];
+    const { width, height } = screen.getPrimaryDisplay().size;
+
+    let entries: string[];
+    try { entries = readdirSync(installDir).map(e => e.toLowerCase()); }
+    catch { return []; }
+
+    if (entries.includes("unityplayer.dll") || entries.some(e => e.endsWith("_data"))) {
+        return ["-screen-fullscreen", "0", "-screen-width", String(width), "-screen-height", String(height)];
+    }
+    if (entries.includes("engine")) {
+        return ["-windowed", `-ResX=${width}`, `-ResY=${height}`];
+    }
+    return [];
+}
+
 ipcMain.handle("get-mode", () => getConfig()?.mode ?? null);
 ipcMain.handle("set-mode", (_, mode: "host" | "client") => saveConfig(mode));
 
@@ -905,12 +922,14 @@ ipcMain.handle("launch-game", async (_, game: {
             console.error("[relay] minecraft-java launch failed:", e);
         }
     } else if ((lc.type === "gog" || lc.type === "exe") && lc.exePath) {
-        const args = lc.type === "exe" ? (lc.args ?? []) : [];
+        const baseArgs = lc.type === "exe" ? (lc.args ?? []) : [];
         if (process.platform === "darwin" && lc.exePath.endsWith(".app")) {
-            spawn("open", [lc.exePath, ...(args.length ? ["--args", ...args] : [])],
+            spawn("open", [lc.exePath, ...(baseArgs.length ? ["--args", ...baseArgs] : [])],
                 { detached: true, stdio: "ignore" }).unref();
         } else {
-            spawn(lc.exePath, args, {
+            const dir = game.installDir || dirname(lc.exePath);
+            const engineArgs = process.platform === "win32" ? detectEngineArgs(dir) : [];
+            spawn(lc.exePath, [...baseArgs, ...engineArgs], {
                 detached: true, stdio: "ignore",
                 cwd: lc.workingDir || game.installDir,
             }).unref();
@@ -1032,6 +1051,26 @@ ipcMain.handle("update-game-last-played", (_, appId: string) => {
             }).catch(() => { });
         }
     }
+});
+
+ipcMain.handle("send-alt-enter", async () => {
+    try {
+        await keyboard.pressKey(Key.LeftAlt);
+        await new Promise(r => setTimeout(r, 40));
+        await keyboard.pressKey(Key.Enter);
+        await new Promise(r => setTimeout(r, 40));
+        await keyboard.releaseKey(Key.Enter);
+        await new Promise(r => setTimeout(r, 40));
+        await keyboard.releaseKey(Key.LeftAlt);
+    } catch (e) {
+        console.error("[relay] send-alt-enter failed:", e);
+        try { await keyboard.releaseKey(Key.Enter); } catch { }
+        try { await keyboard.releaseKey(Key.LeftAlt); } catch { }
+    }
+});
+
+ipcMain.handle("reshape-window", (_, game: any) => {
+    forceBorderless(game);
 });
 
 let mainWindow: BrowserWindow | null = null;

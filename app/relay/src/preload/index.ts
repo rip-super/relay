@@ -30,6 +30,8 @@ if (process.contextIsolated) {
             simulateInput: (event: any) => ipcRenderer.send("simulate-input", event),
             isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
             updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
+            sendAltEnter: () => ipcRenderer.invoke("send-alt-enter"),
+            reshapeWindow: (game: any) => ipcRenderer.invoke("reshape-window", game),
         });
     } catch (error) {
         console.error(error);
@@ -63,5 +65,7 @@ if (process.contextIsolated) {
         simulateInput: (event: any) => ipcRenderer.send("simulate-input", event),
         isGameRunning: (game: any) => ipcRenderer.invoke("is-game-running", game),
         updateGameLastPlayed: (appId: string) => ipcRenderer.invoke("update-game-last-played", appId),
+        sendAltEnter: () => ipcRenderer.invoke("send-alt-enter"),
+        reshapeWindow: (game: any) => ipcRenderer.invoke("reshape-window", game),
     };
 }
