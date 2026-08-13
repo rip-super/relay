@@ -22,8 +22,10 @@ class BorderlessHelper {
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string win);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string cls, string win);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern bool SystemParametersInfo(uint action, uint param, string vparam, uint winini);
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool SystemParametersInfoGet(uint action, uint param, StringBuilder vparam, uint winini);
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool SystemParametersInfoSet(uint action, uint param, string vparam, uint winini);
 
     delegate bool EnumWindowsProc(IntPtr h, IntPtr p);
 
@@ -105,7 +107,7 @@ class BorderlessHelper {
 
     static void SetBlackWallpaper() {
         var sb = new StringBuilder(600);
-        if (SystemParametersInfo(SPI_GETDESKWALLPAPER, (uint)sb.Capacity, sb, 0))
+        if (SystemParametersInfoGet(SPI_GETDESKWALLPAPER, (uint)sb.Capacity, sb, 0))
             savedWallpaper = sb.ToString();
         try {
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "relay_black.bmp");
@@ -114,13 +116,13 @@ class BorderlessHelper {
                 g.Clear(System.Drawing.Color.Black);
                 bmp.Save(path, System.Drawing.Imaging.ImageFormat.Bmp);
             }
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+            SystemParametersInfoSet(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
         } catch { }
     }
 
     static void RestoreWallpaper() {
         if (savedWallpaper != "")
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, savedWallpaper, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+            SystemParametersInfoSet(SPI_SETDESKWALLPAPER, 0, savedWallpaper, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
     }
 
     static object ShellApp() {
