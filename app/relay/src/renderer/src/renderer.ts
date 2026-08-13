@@ -588,7 +588,15 @@ function connectHostWebSocket(hostId: string) {
             if (msg.payload?.appId) {
                 await relay.updateGameLastPlayed(msg.payload.appId);
                 const localGame = libraryGames.find(g => g.appId === msg.payload.appId);
-                if (localGame) localGame.lastPlayed = new Date().toISOString();
+                if (localGame) {
+                    localGame.lastPlayed = new Date().toISOString();
+
+                    if (document.querySelector(".home-main")) {
+                        renderHostHome();
+                    } else if (document.querySelector(".library-content")) {
+                        renderHostLibrary();
+                    }
+                }
             }
 
             const isRunning = await relay.isGameRunning(msg.payload);
@@ -2051,13 +2059,18 @@ function openGameModal(g: LibraryGame) {
 
     let actionHtml: string;
     if (currentMode !== "client") {
-        actionHtml = `<button class="play-btn" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
-                </svg>
-                Client mode only
-            </button>
-            <div class="modal-play-hint">Connect as a client to launch games</div>`;
+        if (isMc) {
+            actionHtml = `<div class="mc-picker" id="mcPicker">${mcPickerInner(g.minecraftVariants!)}</div>
+                          <div class="modal-play-hint" style="margin-top: 12px;">Connect as a client to launch games</div>`;
+        } else {
+            actionHtml = `<button class="play-btn" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 10.268C20.333 11.038 20.333 12.962 19 13.732L10 18.928C8.667 19.698 7 18.736 7 17.196L7 6.804C7 5.264 8.667 4.302 10 5.072L19 10.268Z"/>
+                    </svg>
+                    Client mode only
+                </button>
+                <div class="modal-play-hint">Connect as a client to launch games</div>`;
+        }
     } else if (isMc) {
         actionHtml = `<div class="mc-picker" id="mcPicker">${mcPickerInner(g.minecraftVariants!)}</div>`;
     } else {
