@@ -44,7 +44,7 @@ namespace WinMouseHelper {
             int vscreenH = GetSystemMetrics(79);
             int vscreenX = GetSystemMetrics(76);
             int vscreenY = GetSystemMetrics(77);
-            int margin = 100;
+            int margin = 2;
             
             while ((line = Console.In.ReadLine()) != null) {
                 var parts = line.Split(' ');

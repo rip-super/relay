@@ -55,8 +55,8 @@ function saveConfig(mode: "host" | "client"): void {
 
 function macHelperPath(): string {
     return app.isPackaged
-        ? join(process.resourcesPath, "mouse", "mouse-helper")
-        : join(app.getAppPath(), "src", "mouse", "mouse-helper");
+        ? join(process.resourcesPath, "mouse", "mac-mouse-helper")
+        : join(app.getAppPath(), "src", "mouse", "mac-mouse-helper");
 }
 
 let macMouseHelper: ChildProcess | null = null;
@@ -998,7 +998,7 @@ ipcMain.on("simulate-input", async (_, event) => {
                 const display = screen.getPrimaryDisplay();
                 const w = display.size.width;
                 const h = display.size.height;
-                const MARGIN = 120;
+                const MARGIN = 2;
 
                 const pos = await mouse.getPosition();
                 let wx = pos.x;
