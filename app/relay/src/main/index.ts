@@ -1079,7 +1079,11 @@ function createWindow(): void {
 
 app.commandLine.appendSwitch("enable-features", [
     "MacLoopbackAudioForScreenShare",
-    "PlatformHEVCDecoderSupport"
+    "PlatformHEVCDecoderSupport",
+    "AllowWgcDesktopCapturer",
+    "AllowWgcScreenCapturer",
+    "AllowWgcWindowCapturer",
+    "AllowWgcZeroHz"
 ].join(","));
 app.commandLine.appendSwitch("disable-features", "WebRtcHideLocalIpsWithMdns");
 app.commandLine.appendSwitch("max-gum-fps", "60");
